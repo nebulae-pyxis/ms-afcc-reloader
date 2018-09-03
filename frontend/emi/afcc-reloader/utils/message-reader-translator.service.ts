@@ -15,8 +15,7 @@ export class MessageReaderTranslatorService {
 
   constructor(
     private cypherAesService: CypherAesService,
-    private bluetoothService: BluetoothService,
-    private afccReloaderService: AfccReloaderService
+    private bluetoothService: BluetoothService
   ) {
     this.cypherAesService.config([
       1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
@@ -79,6 +78,8 @@ export class MessageReaderTranslatorService {
 
   private translateMessageResponse$(responseList) {
     this.responseList = [];
+    return Rx.of(undefined);
+/*
     return this.afccReloaderService._deviceConnectionStatus.pipe(
       map(connectionStatus => {
         console.log('connectionStatus: ', connectionStatus);
@@ -86,6 +87,7 @@ export class MessageReaderTranslatorService {
         return connectionStatus;
       })
     );
+    */
   }
 
 }
