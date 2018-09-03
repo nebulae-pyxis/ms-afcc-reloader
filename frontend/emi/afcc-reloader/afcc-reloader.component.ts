@@ -176,3 +176,5 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
     this.snackBar.open(text, 'Cerrar', { duration: 2000 });
   }
 }
+
+
