@@ -1,0 +1,50 @@
+[
+    {
+        "name": "afcc-reloader",
+        "src": "frontend/emi/afcc-reloader",
+        "assets" :"frontend/emi/assets/afcc-reloader",
+        "groups": [
+            {
+              "id": "POS",
+              "icon": "location_searching",
+              "translate": {
+                "en": "POS",
+                "es": "POS"
+              },
+              "priority": 1000
+            }
+          ],
+        "contents": [
+            {
+                "groupId": "POS",
+                "id": "afcc-reloader",
+                "icon": "dashboard",
+                "translate": {
+                    "en": "AFCC Reloader",
+                    "es": "AFCC Reloader"
+                },
+                "navURL": "/afcc-reloader",
+                "path": "afcc-reloader",
+                "loadChildren": "./main/content/afcc-reloader/afcc-reloader.module#AfccReloaderModule",
+                "priority": 1001,
+                "default" : false
+            }            
+        ],
+        "preBuildCommands": [
+          "npm install @types/web-bluetooth",
+          "npm install aes-js",
+          "npm install /home/nesas-02/Projects/nebulaCLI/angular-ble-app/dist/angular-ble/nebulae-angular-ble-0.0.5.tgz"
+        ],
+        "environmentVars": {
+          "default": {
+            "production": false
+          },
+          "local": {
+            "production": false
+          },
+          "prod": {
+            "production": true
+          }
+        }
+    }
+]

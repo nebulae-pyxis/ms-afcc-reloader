@@ -1,0 +1,7 @@
+export const GattService = {
+  NOTIFIER: {
+    SERVICE: '0000fff0-0000-1000-8000-00805f9b34fb',
+    READER: '0000fff2-0000-1000-8000-00805f9b34fb',
+    WRITER: '0000fff1-0000-1000-8000-00805f9b34fb'
+  }
+};

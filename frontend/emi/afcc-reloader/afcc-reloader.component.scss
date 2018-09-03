@@ -1,0 +1,17 @@
+@import "src/app/core/scss/fuse";
+
+.loader-spinner {
+  color: #ffffff
+}
+
+.red {
+  .mat-button, .mat-mini-fab{
+    background-color:#b71c1c;
+  }
+}
+
+.green {
+  .mat-button, .mat-mini-fab{
+    background-color:#4caf50;
+  }
+}

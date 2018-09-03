@@ -1,0 +1,55 @@
+<div id="devices" class="page-layout carded fullwidth" fusePerfectScrollbar>
+
+  <!-- TOP BACKGROUND -->
+  <div class="top-bg mat-accent-bg"></div>
+  <!-- / TOP BACKGROUND -->
+
+  <!-- CENTER -->
+  <div class="center">
+
+    <!-- HEADER -->
+    <div class="header white-fg" fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="row" fxLayoutAlign.gt-xs="space-between center">
+
+      <!-- APP TITLE -->
+      <div class="logo my-12 m-sm-0" fxLayout="row" fxLayoutAlign="start center">
+        <mat-icon class="logo-icon mr-16" *fuseIfOnDom [@animate]="{value:'*',params:{delay:'50ms',scale:'0.2'}}">signal_wifi_4_bar</mat-icon>
+        <span class="logo-text h1" *fuseIfOnDom [@animate]="{value:'*',params:{delay:'100ms',x:'-25px'}}">{{afccTittle}}</span>
+      </div>
+
+      <!-- / APP TITLE -->
+
+      <!-- SEARCH -->
+      <div fxLayout="column" fxLayout.gt-sm="row">
+        <button *ngIf="false" mat-mini-fab style="margin-right:16px;">
+          <mat-icon>help</mat-icon>
+        </button>
+        <button mat-mini-fab style="margin-right:16px;">
+          <mat-icon svgIcon="{{batteryLevelIcon}}"></mat-icon>
+        </button>
+        <div *ngIf="connectionStatus === 'DISCONNECTED'" class="red">
+          <button mat-mini-fab (click)="newConnection()">
+            <mat-icon >cancel</mat-icon>
+          </button>
+        </div>
+        <div *ngIf="connectionStatus === 'CONNECTED'" class="green">
+          <button mat-mini-fab (click)="newConnection()" ngClass="{'green': imageStatus === 'check_circle', 'red': imageStatus !== 'cancel'}">
+            <mat-icon aria-label="Example icon-button with a heart icon">check_circle</mat-icon>
+          </button>
+        </div>
+        <button *ngIf="showLoaderSpinner" mat-mini-fab (click)="newConnection()">
+          <mat-progress-spinner *ngIf="showLoaderSpinner" class="loader-spinner" diameter="20" mode="indeterminate">
+          </mat-progress-spinner>
+        </button>
+      </div>
+      <!-- / SEARCH -->
+
+    </div>
+    <!-- / HEADER -->
+
+    <!-- CONTENT CARD -->
+    <div class="content-card mat-white-bg">
+    </div>
+    <!-- / CONTENT CARD -->
+  </div>
+  <!-- / CENTER -->
+</div>
