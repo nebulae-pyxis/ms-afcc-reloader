@@ -193,7 +193,7 @@ docker-compose up
 *  import the file located at docs/resources/keycloakRealmToImport.json
   
 #### Create the initial user:
-* select the DEV_tpm keycloak realm and click on the users option from the left panel.
+* select the DEV_pyxis keycloak realm and click on the users option from the left panel.
 * select 'add user' option , fill the needed fields and enable the 'Email Verified' option.
 * set a password by editing the user, open the 'credentials' tabs, type a new password and deselect the 'Temporary' option
 
@@ -222,7 +222,7 @@ nebulae compose-api development --api-type=NEBULAE_GATEWAY --api-repo=https://gi
 
 ### 7. Set the JWT token 
 * LogIn to keycloak http://localhost:8080/auth/admin/ (user: "keycloak", pass: "keycloak")
-* select the DEV_tpm keycloak realm and click on 'realm settings' in left panel
+* select the DEV_pyxis keycloak realm and click on 'realm settings' in left panel
 * select keys option tab
 * click on 'public key' from the RSA key and copy the contents.
 * set this key value to the **JWT_PUBLIC_KEY** atribute in the following files: *WORKING_FOLDER*/ms-afcc-reloader/backend/afcc-reloader/.env   *WORKING_FOLDER*/ms-afcc-reloader/playground/gateway/.env  

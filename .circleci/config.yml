@@ -203,26 +203,26 @@ workflows:
   build-and-deploy:
     jobs:
       - prepare:
-          context: TPM
+          context: PYXIS
       - build-frontend:
-          context: TPM
+          context: PYXIS
           requires:
             - prepare
       - build-api:
-          context: TPM
+          context: PYXIS
           requires:
             - prepare
       - build-mbinit:
-          context: TPM
+          context: PYXIS
           requires:
             - prepare
       - build-backend:
-          context: TPM
+          context: PYXIS
           requires:
             - prepare
             - build-mbinit      
       - deploy-prod:
-          context: TPM
+          context: PYXIS
           requires:
             - build-frontend
             - build-api
