@@ -114,8 +114,7 @@ export abstract class DataBlockRequest extends DeviceMessageReq
    * Converts enum to byte
    */
   messageTypeToBuffer() {
-    const test = 107;
-    return new Uint8Array([parseInt(this.messageType, 16)]);
+    return new Uint8Array([this.messageType]);
   }
   /**
    * Generate data of dataBlock

@@ -1,15 +1,8 @@
-"Hello world sample, please remove"
-type HelloWorldAfccReloader{
-  "text"
-  sn: String!  
+
+type MasterKeyReader{
+  value: String!  
 }
 
 type Query {
-  "Hello world sample, please remove"
-  getHelloWorldFromAfccReloader: HelloWorldAfccReloader
-}
-
-type Subscription {
-  "Hello world sample, please remove"
-  AfccReloaderHelloWorldSubscription: HelloWorldAfccReloader  
+  getMasterKey: MasterKeyReader
 }

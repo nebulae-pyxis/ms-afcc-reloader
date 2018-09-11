@@ -27,7 +27,8 @@
                 "path": "afcc-reloader",
                 "loadChildren": "./main/content/afcc-reloader/afcc-reloader.module#AfccReloaderModule",
                 "priority": 1001,
-                "default" : false
+                "default" : false,
+                "roles" : ["pos"]
             }            
         ],
         "preBuildCommands": [

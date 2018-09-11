@@ -7,6 +7,7 @@ import { AfccReloaderService } from './afcc-reloader.service';
 import { MessageReaderTranslatorService } from './utils/message-reader-translator.service';
 import { AfccReloaderComponent } from './afcc-reloader.component';
 import { AngularBleModule } from '@nebulae/angular-ble';
+import { AuthReaderService } from './utils/auth-reader.service';
 
 const routes: Routes = [
   {
@@ -25,7 +26,7 @@ const routes: Routes = [
   declarations: [
     AfccReloaderComponent
   ],
-  providers: [ AfccReloaderService, MessageReaderTranslatorService, DatePipe]
+  providers: [ AfccReloaderService, MessageReaderTranslatorService, AuthReaderService, DatePipe]
 })
 
 export class AfccReloaderModule {}
