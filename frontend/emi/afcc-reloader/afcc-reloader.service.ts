@@ -12,7 +12,10 @@ import { MessageType } from './communication_profile/message-type';
 import { RdrToSphAuthRsp1 } from './communication_profile/messages/response/rdr-to-sph-auth-resp1';
 import { AuthReaderService } from './utils/auth-reader.service';
 import { Commons } from './utils/commons';
+import { ApduCommandReq } from './communication_profile/messages/request/apdu-command-req';
+import { CardPowerOn } from './communication_profile/messages/request/card-power-on';
 import { DeviceUiidReq } from './communication_profile/messages/request/device-uiid-req';
+import { CardPowerOff } from './communication_profile/messages/request/card-power-off';
 
 @Injectable()
 export class AfccReloaderService {
@@ -25,7 +28,7 @@ export class AfccReloaderService {
   constructor(
     private bluetoothService: BluetoothService,
     private messageReaderTranslator: MessageReaderTranslatorService,
-    private authReaderService: AuthReaderService
+    public authReaderService: AuthReaderService
   ) {
     this.bluetoothService.getDevice$().subscribe(device => {
       if (!device) {
@@ -111,14 +114,49 @@ export class AfccReloaderService {
     return this.bluetoothService.getBatteryLevel$();
   }
 
-  getUiid$() {
-    const uiidReq = new DeviceUiidReq(new Uint8Array([0xFF, 0xCA, 0x00, 0x00, 0x00]));
+  cardPowerOn$() {
+    const cardPoweOnReq = new CardPowerOn(new Uint8Array(0));
+    const message = this.messageReaderTranslator.generateMessageRequestFormat(cardPoweOnReq);
     return this.bluetoothService
     .sendAndWaitResponse$(
-      this.messageReaderTranslator.generateMessageRequestFormat(uiidReq),
+      message,
       GattService.NOTIFIER.SERVICE,
       GattService.NOTIFIER.WRITER,
-      [{ position: 3, byteToMatch: MessageType.APDU_COMMAND_RESP }]
+      [{ position: 3, byteToMatch: MessageType.CARD_POWER_ON_RESP }],
+      this.authReaderService.sessionKey
+    );
+  }
+
+  cardPowerOff$() {
+    const cardPoweOffReq = new CardPowerOff(new Uint8Array(0));
+    const message = this.messageReaderTranslator.generateMessageRequestFormat(cardPoweOffReq);
+    return this.bluetoothService
+    .sendAndWaitResponse$(
+      message,
+      GattService.NOTIFIER.SERVICE,
+      GattService.NOTIFIER.WRITER,
+      [{ position: 3, byteToMatch: MessageType.CARD_POWER_OFF_RESP }],
+      this.authReaderService.sessionKey
+    );
+  }
+
+  getUiid$() {
+    const uiidReq = new DeviceUiidReq(new Uint8Array([0xFF, 0xCA, 0x00, 0x00, 0x00]));
+    const message = this.messageReaderTranslator.generateMessageRequestFormat(uiidReq);
+    console.log('datablock sin formatear: ',
+      this.authReaderService.cypherAesService.bytesTohex(
+         this.authReaderService.cypherAesService.decrypt(
+        new Uint8Array(Array.from(message).slice(3, -2))
+    )
+    )
+    );
+    return this.bluetoothService
+    .sendAndWaitResponse$(
+      message,
+      GattService.NOTIFIER.SERVICE,
+      GattService.NOTIFIER.WRITER,
+      [{ position: 3, byteToMatch: MessageType.GET_UIID_RESP }],
+      this.authReaderService.sessionKey
     );
   }
 }

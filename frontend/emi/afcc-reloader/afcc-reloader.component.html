@@ -53,12 +53,25 @@
     <!-- / HEADER -->
 
     <!-- CONTENT CARD -->
-    <div  style="margin-top: 30px" class="content-card mat-white-bg">
-      <h3>Uiid: {{uiid}}</h3>
-      <div class="button-row">
-        <button mat-button>Basic</button>
-        <button (click)="getUiid()" mat-button color="primary">Get UIID</button>
+    <div style="margin-top: 30px" class="content-card mat-white-bg">
+      <div style="margin: 20px" fxLayout="row" fxLayout.gt-sm="row">
+          <mat-icon style="width: 60px; font-size: 50px">credit_card</mat-icon>
+          <div fxLayout="column" fxLayout.gt-sm="column">
+            <mat-form-field>
+              <input matInput placeholder="UIID" value="{{uiid}}">
+            </mat-form-field>
+            <mat-form-field>
+              <input matInput placeholder="Saldo" value="0$">
+            </mat-form-field>
+          </div>
       </div>
+      <mat-grid-list style="margin-left: 20px; margin-right: 20px" cols="3" rowHeight="100px">
+        <mat-grid-tile
+            *ngFor="let reloadButton of reloadButtonList"
+            [rowspan]="reloadButton.rows">
+            <button style="width: 200px; height: 100px;" mat-raised-button color="primary">{{reloadButton.buttonValue}}$</button>
+        </mat-grid-tile>
+      </mat-grid-list>
 
       <!-- The Modal -->
       <div *ngIf="connectionStatus !== 'CONNECTED'" class="modal">
@@ -86,15 +99,15 @@
 
         <!-- Modal IDLE -->
         <mat-card *ngIf="connectionStatus === 'IDLE'" class="modal-content">
-            <mat-card-header>
-              <mat-card-title style="font-size: 30px">Actualmente la lectora esta en modo reposo</mat-card-title>
-            </mat-card-header>
-            <mat-card-content>
-              <p style="font-size: 20px">
-                Favor presione el boton ubicado en el lateral derecha de la lectora para activar nuevamente la lectora
-              </p>
-            </mat-card-content>
-          </mat-card>
+          <mat-card-header>
+            <mat-card-title style="font-size: 30px">Actualmente la lectora esta en modo reposo</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <p style="font-size: 20px">
+              Favor presione el boton ubicado en el lateral derecha de la lectora para activar nuevamente la lectora
+            </p>
+          </mat-card-content>
+        </mat-card>
 
       </div>
     </div>

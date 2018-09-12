@@ -9,6 +9,7 @@ import { Observer, Observable } from 'rxjs/Rx';
 import { interval, of, forkJoin } from 'rxjs';
 import { mergeMap, map, withLatestFrom, tap, mapTo } from 'rxjs/operators';
 import { startWith } from 'rxjs-compat/operator/startWith';
+import { DeviceUiidResp } from './communication_profile/messages/response/device-uiid-resp';
 
 @Component({
   // tslint:disable-next-line:component-selector
@@ -23,8 +24,10 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
   batteryLevel;
   batteryLevelIcon = 'battery-unknown';
   batteryLevelSub: Subscription;
+  uiidSub: Subscription;
   afccTittle = '';
   uiid: any;
+  reloadButtonList;
 
   constructor(
     private afccReloaderService: AfccReloaderService,
@@ -97,7 +100,8 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
             .subscribe(batteryLevelIcon => {
               this.batteryLevelIcon = batteryLevelIcon;
             });
-        } else if (this.connectionStatus === ConnectionStatus.DISCONNECTED){
+          this.uiidSub = this.requestUiidByTime$().subscribe();
+        } else if (this.connectionStatus === ConnectionStatus.DISCONNECTED) {
           this.afccReloaderService.onConnectionLost();
           this.afccTittle = '';
           if (this.batteryLevelSub) {
@@ -105,20 +109,38 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
             this.batteryLevelIcon = 'battery-unknown';
             this.batteryLevelSub.unsubscribe();
           }
+          if (this.uiidSub) {
+            this.uiid = '';
+            this.uiidSub.unsubscribe();
+          }
         }
       });
+    this.reloadButtonList = [
+      { cols: 1, rows: 1, buttonValue: 2000, color: 'lightblue' },
+      { cols: 1, rows: 1, buttonValue: 5000, color: 'lightblue' },
+      { cols: 1, rows: 1, buttonValue: 10000, color: 'lightblue' },
+      { cols: 1, rows: 1, buttonValue: 15000, color: 'lightblue' },
+      { cols: 1, rows: 1, buttonValue: 20000, color: 'lightblue' },
+      { cols: 1, rows: 1, buttonValue: 30000, color: 'lightblue' },
+      { cols: 1, rows: 1, buttonValue: 40000, color: 'lightblue' },
+      { cols: 1, rows: 1, buttonValue: 50000, color: 'lightblue' },
+      { cols: 1, rows: 1, buttonValue: 0, color: 'lightblue' }
+    ];
   }
   ngOnDestroy() {
     this.batteryLevelSub.unsubscribe();
-    this.afccReloaderService.changeDeviceConnectionStatus(ConnectionStatus.DISCONNECTED);
+    this.afccReloaderService.changeDeviceConnectionStatus(
+      ConnectionStatus.DISCONNECTED
+    );
   }
-
 
   newConnection() {
     this.afccReloaderService.changeDeviceConnectionStatus(
       ConnectionStatus.CONNECTING
     );
-      this.afccReloaderService.stablishNewConnection$().pipe(
+    this.afccReloaderService
+      .stablishNewConnection$()
+      .pipe(
         mergeMap(gattServer => {
           return this.afccReloaderService.getBatteryLevel$().pipe(
             tap(batteryLevel => {
@@ -130,41 +152,61 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
             map(_ => gattServer)
           );
         })
-      ).pipe(
-      mergeMap(gattServer => {
-      return this.afccReloaderService.startAuthReader$().pipe(
-        mapTo(gattServer)
-      );
-      })
-    ).subscribe(
-      gattServer => {
-        this.afccReloaderService.onConnectionSuccessful();
-        this.afccTittle = `Disp: ${(gattServer as BluetoothRemoteGATTServer).device.name}`;
-         this.openSnackBar(
-          'Conexión establecida con el dispositivo: ' + (gattServer as BluetoothRemoteGATTServer).device.name
-         );
-      },
-      error => {
-        console.log(error);
-        this.afccReloaderService.changeDeviceConnectionStatus(
-          ConnectionStatus.DISCONNECTED
-        );
-        if (error.toString().includes('Bluetooth adapter not available')) {
-          this.openSnackBar('Bluetooth no soportado en este equipo');
-        } else {
+      )
+      .pipe(
+        mergeMap(gattServer => {
+          return this.afccReloaderService
+            .startAuthReader$()
+            .pipe(mapTo(gattServer));
+        })
+      )
+      .subscribe(
+        gattServer => {
+          this.afccReloaderService.onConnectionSuccessful();
+          this.afccTittle = `Disp: ${
+            (gattServer as BluetoothRemoteGATTServer).device.name
+          }`;
           this.openSnackBar(
-            'Fallo al establecer conexión, intentelo nuevamente'
+            'Conexión establecida con el dispositivo: ' +
+              (gattServer as BluetoothRemoteGATTServer).device.name
           );
-        }
-      },
-      () => {}
-    );
+        },
+        error => {
+          console.log(error);
+          this.afccReloaderService.changeDeviceConnectionStatus(
+            ConnectionStatus.DISCONNECTED
+          );
+          if (error.toString().includes('Bluetooth adapter not available')) {
+            this.openSnackBar('Bluetooth no soportado en este equipo');
+          } else {
+            this.openSnackBar(
+              'Fallo al establecer conexión, intentelo nuevamente'
+            );
+          }
+        },
+        () => {}
+      );
   }
 
-  getUiid() {
-    this.afccReloaderService.getUiid$().subscribe(result => {
-      this.uiid = result;
-    });
+  requestUiidByTime$() {
+    return interval(2000).pipe(
+      mergeMap(() => {
+        return this.afccReloaderService.cardPowerOn$().
+          pipe(
+            mergeMap(resultPowerOn => {
+              // aqui se puede tomar el ATR en el data
+              console.log('llega reusltado Card power on: ', this.afccReloaderService.authReaderService.cypherAesService.bytesTohex(resultPowerOn));
+              return this.afccReloaderService.getUiid$();
+            }),
+            tap(resultUiid => {
+              const resp = new DeviceUiidResp(resultUiid);
+              console.log('llega reusltado uiid: ', this.afccReloaderService.authReaderService.cypherAesService.bytesTohex(resultUiid));
+              this.uiid = this.afccReloaderService.authReaderService.cypherAesService.bytesTohex(resp.data.slice(0, -2));
+            }),
+            mergeMap(_ => this.afccReloaderService.cardPowerOff$())
+          );
+      })
+    );
   }
 
   requestBatteryLevelByTime$() {

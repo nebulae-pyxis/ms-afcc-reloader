@@ -1,11 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Commons } from '../utils/commons';
-import * as Rx from 'rxjs';
 import { DataBlockRequest } from '../communication_profile/data-block-req';
-import { CypherAesService, BluetoothService } from '@nebulae/angular-ble';
-import { GattService } from './gatt-services';
-import { map, mergeMap } from 'rxjs/operators';
-import { AfccReloaderService } from '../afcc-reloader.service';
+import { CypherAesService } from '@nebulae/angular-ble';
 
 @Injectable()
 export class MessageReaderTranslatorService {
@@ -24,6 +20,7 @@ export class MessageReaderTranslatorService {
     } else {
       dataBlock = dataBlockRequest.getDataBlock();
     }
+    dataBlockRequest.dataBlock = dataBlock;
     return Commons.concatenate(
       dataBlockRequest.startByte,
       dataBlockRequest.getDeviceMessageLenght(),

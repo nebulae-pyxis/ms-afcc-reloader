@@ -1,7 +1,7 @@
 import { DeviceMessageResp } from './device-message-resp';
 
 export class DataBlockResponse extends DeviceMessageResp {
-  constructor(dataBytes) {
+  constructor(dataBytes, messageAuth) {
     super();
     // GENERAL MESSAGE EXTACT
     this.startByte = new Uint8Array([dataBytes[0]]);
@@ -15,7 +15,12 @@ export class DataBlockResponse extends DeviceMessageResp {
     this.seq = new Uint8Array([dataBytes[7]]);
     this.param = new Uint8Array([dataBytes[8]]);
     this.checkSum = new Uint8Array([dataBytes[9]]);
-    this.data = new Uint8Array(dataBytes.slice(15, (15 + (this.lengh - 5))));
+    if (messageAuth) {
+      this.data = new Uint8Array(dataBytes.slice(15, (15 + (this.lengh - 5))));
+    }
+    else {
+      this.data = new Uint8Array(dataBytes.slice(10, (10 + (this.lengh))));
+    }
   }
 
   cmdMessageType: String;
