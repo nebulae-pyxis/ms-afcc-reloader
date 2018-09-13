@@ -19,7 +19,9 @@ const routes: Routes = [
 @NgModule({
   imports: [
     SharedModule,
-    AngularBleModule.forRoot(),
+    AngularBleModule.forRoot({
+      enableTracing: false
+    }),
     RouterModule.forChild(routes),
     FuseWidgetModule
   ],

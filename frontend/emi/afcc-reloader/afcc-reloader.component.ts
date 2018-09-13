@@ -7,7 +7,7 @@ import { MatSnackBar, MatIconRegistry } from '@angular/material';
 import { DomSanitizer } from '@angular/platform-browser';
 import { Observer, Observable } from 'rxjs/Rx';
 import { interval, of, forkJoin } from 'rxjs';
-import { mergeMap, map, withLatestFrom, tap, mapTo } from 'rxjs/operators';
+import { mergeMap, map, withLatestFrom, tap, mapTo, timeout, catchError } from 'rxjs/operators';
 import { startWith } from 'rxjs-compat/operator/startWith';
 import { DeviceUiidResp } from './communication_profile/messages/response/device-uiid-resp';
 
@@ -138,28 +138,25 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
     this.afccReloaderService.changeDeviceConnectionStatus(
       ConnectionStatus.CONNECTING
     );
-    this.afccReloaderService
-      .stablishNewConnection$()
-      .pipe(
-        mergeMap(gattServer => {
-          return this.afccReloaderService.getBatteryLevel$().pipe(
-            tap(batteryLevel => {
-              this.batteryLevel = batteryLevel;
-              this.batteryLevelIcon = this.batteryLevelToBatteryIcon(
-                batteryLevel
-              );
-            }),
-            map(_ => gattServer)
-          );
-        })
-      )
-      .pipe(
-        mergeMap(gattServer => {
-          return this.afccReloaderService
-            .startAuthReader$()
-            .pipe(mapTo(gattServer));
-        })
-      )
+    this.afccReloaderService.disconnectDevice$().pipe(
+      mergeMap(_ => this.afccReloaderService.stablishNewConnection$()),
+      mergeMap(gattServer => {
+        return this.afccReloaderService.getBatteryLevel$().pipe(
+          tap(batteryLevel => {
+            this.batteryLevel = batteryLevel;
+            this.batteryLevelIcon = this.batteryLevelToBatteryIcon(
+              batteryLevel
+            );
+          }),
+          mapTo(gattServer)
+        );
+      }),
+      mergeMap(gattServer => {
+        return this.afccReloaderService
+          .startAuthReader$()
+          .pipe(mapTo(gattServer));
+      })
+    )
       .subscribe(
         gattServer => {
           this.afccReloaderService.onConnectionSuccessful();
@@ -195,17 +192,16 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
           pipe(
             mergeMap(resultPowerOn => {
               // aqui se puede tomar el ATR en el data
-              console.log('llega reusltado Card power on: ', this.afccReloaderService.authReaderService.cypherAesService.bytesTohex(resultPowerOn));
               return this.afccReloaderService.getUiid$();
             }),
             tap(resultUiid => {
               const resp = new DeviceUiidResp(resultUiid);
-              console.log('llega reusltado uiid: ', this.afccReloaderService.authReaderService.cypherAesService.bytesTohex(resultUiid));
               this.uiid = this.afccReloaderService.authReaderService.cypherAesService.bytesTohex(resp.data.slice(0, -2));
             }),
             mergeMap(_ => this.afccReloaderService.cardPowerOff$())
           );
-      })
+      }),
+      catchError(error => of(`error requesting UIID`))
     );
   }
 
@@ -242,3 +238,6 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
     this.snackBar.open(text, 'Cerrar', { duration: 2000 });
   }
 }
+
+
+

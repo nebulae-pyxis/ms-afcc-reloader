@@ -47,10 +47,20 @@ export class AfccReloaderService {
   }
 
   stablishNewConnection$() {
+
     return this.bluetoothService.connectDevice$({
       optionalServices: [GattService.NOTIFIER.SERVICE],
       filters: [{ namePrefix: 'ACR' }]
     });
+  }
+
+  disconnectDevice$() {
+    return Rx.of(undefined).pipe(
+      mergeMap(_ => {
+        this.bluetoothService.disconnectDevice();
+        return Rx.of('Device disconnected');
+      })
+    );
   }
 
   startAuthReader$() {
@@ -143,13 +153,6 @@ export class AfccReloaderService {
   getUiid$() {
     const uiidReq = new DeviceUiidReq(new Uint8Array([0xFF, 0xCA, 0x00, 0x00, 0x00]));
     const message = this.messageReaderTranslator.generateMessageRequestFormat(uiidReq);
-    console.log('datablock sin formatear: ',
-      this.authReaderService.cypherAesService.bytesTohex(
-         this.authReaderService.cypherAesService.decrypt(
-        new Uint8Array(Array.from(message).slice(3, -2))
-    )
-    )
-    );
     return this.bluetoothService
     .sendAndWaitResponse$(
       message,
