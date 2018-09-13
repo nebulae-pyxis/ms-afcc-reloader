@@ -8,6 +8,7 @@ import { MessageReaderTranslatorService } from './utils/message-reader-translato
 import { AfccReloaderComponent } from './afcc-reloader.component';
 import { AngularBleModule } from '@nebulae/angular-ble';
 import { AuthReaderService } from './utils/auth-reader.service';
+import { AfccReloaderModelDialogComponent } from './afcc-reloader-modal-dialog/afcc-reloader-modal-dialog.component'
 
 const routes: Routes = [
   {
@@ -20,13 +21,17 @@ const routes: Routes = [
   imports: [
     SharedModule,
     AngularBleModule.forRoot({
-      enableTracing: false
+      enableTracing: true
     }),
     RouterModule.forChild(routes),
     FuseWidgetModule
   ],
   declarations: [
-    AfccReloaderComponent
+    AfccReloaderComponent,
+    AfccReloaderModelDialogComponent
+  ],
+  entryComponents: [
+    AfccReloaderModelDialogComponent
   ],
   providers: [ AfccReloaderService, MessageReaderTranslatorService, AuthReaderService, DatePipe]
 })

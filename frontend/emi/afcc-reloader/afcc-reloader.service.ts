@@ -20,6 +20,8 @@ import { CardPowerOff } from './communication_profile/messages/request/card-powe
 @Injectable()
 export class AfccReloaderService {
   _deviceConnectionStatus = new Rx.BehaviorSubject<String>('DISCONNECTED');
+  private _batteryLevel = new Rx.Subject<number>();
+  private _gattServer = new Rx.Subject<any>();
   currentDevice: any;
   private initiatedNotifierList = [];
   deviceStartIdleSubscription = new Rx.Subscription;
@@ -44,6 +46,22 @@ export class AfccReloaderService {
 
   deviceConnectionStatusListener$() {
     return this._deviceConnectionStatus.asObservable();
+  }
+
+  changeGattServer(gattServer) {
+    this._gattServer.next(gattServer);
+  }
+
+  gattServerListener$() {
+    return this._gattServer.asObservable();
+  }
+
+  changeBatteryLevel(newBatteryLevel) {
+    this._batteryLevel.next(newBatteryLevel);
+  }
+
+  batteryLevelListener$() {
+    return this._batteryLevel.asObservable();
   }
 
   stablishNewConnection$() {
@@ -163,3 +181,5 @@ export class AfccReloaderService {
     );
   }
 }
+
+

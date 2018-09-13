@@ -65,50 +65,22 @@
             </mat-form-field>
           </div>
       </div>
-      <mat-grid-list style="margin-left: 20px; margin-right: 20px" cols="3" rowHeight="100px">
-        <mat-grid-tile
-            *ngFor="let reloadButton of reloadButtonList"
-            [rowspan]="reloadButton.rows">
-            <button style="width: 200px; height: 100px;" mat-raised-button color="primary">{{reloadButton.buttonValue}}$</button>
-        </mat-grid-tile>
-      </mat-grid-list>
-
-      <!-- The Modal -->
-      <div *ngIf="connectionStatus !== 'CONNECTED'" class="modal">
-
-        <!-- Modal DISCONNECTED -->
-        <mat-card *ngIf="connectionStatus === 'DISCONNECTED'" class="modal-content scrollable-content">
-          <mat-card-header>
-            <mat-card-title style="font-size: 22px">Actualmente sin conexion a la lectora</mat-card-title>
-          </mat-card-header>
-          <mat-card-content style="height: 200px; overflow-y: auto;">
-            <p style="font-size: 14px">
-              Favor mover el botón ubicado en la parte superior de la lectora para el icono <mat-icon>bluetooth</mat-icon>
-            </p>
-
-            <p style="font-size: 14px">
-              Verificar el número serial (S/N) en la parte trasera de lectora, ya que con estos se va a identificar el
-              dispositivo para establecer la conexión bluetooth.
-            </p>
-          </mat-card-content>
-          <mat-card-actions>
-            <button (click)="newConnection()" style="margin: 20px; font-size: 20px" mat-raised-button color="accent">Establecer
-              conexión</button>
-          </mat-card-actions>
-        </mat-card>
-
-        <!-- Modal IDLE -->
-        <mat-card *ngIf="connectionStatus === 'IDLE'" class="modal-content">
-          <mat-card-header>
-            <mat-card-title style="font-size: 30px">Actualmente la lectora esta en modo reposo</mat-card-title>
-          </mat-card-header>
-          <mat-card-content>
-            <p style="font-size: 20px">
-              Favor presione el boton ubicado en el lateral derecha de la lectora para activar nuevamente la lectora
-            </p>
-          </mat-card-content>
-        </mat-card>
-
+      <div fxLayout="column" fxLayout.gt-sm="column">
+        <div fxLayout="row" fxLayout.gt-sm="row">
+          <button class="pos-button" mat-raised-button color="primary">2.000$</button>
+          <button class="pos-button" mat-raised-button color="primary">5.000$</button>
+          <button class="pos-button" mat-raised-button color="primary">10.000$</button>
+        </div>
+        <div fxLayout="row" fxLayout.gt-sm="row">
+          <button class="pos-button" mat-raised-button color="primary">15.000$</button>
+          <button class="pos-button" mat-raised-button color="primary">20.000$</button>
+          <button class="pos-button" mat-raised-button color="primary">30.000$</button>
+        </div>
+        <div fxLayout="row" fxLayout.gt-sm="row">
+          <button class="pos-button" mat-raised-button color="primary">40.000$</button>
+          <button class="pos-button" mat-raised-button color="primary">50.000$</button>
+          <button class="pos-button" mat-raised-button color="primary">Otro Valor</button>
+        </div>
       </div>
     </div>
     <!-- / CONTENT CARD -->
