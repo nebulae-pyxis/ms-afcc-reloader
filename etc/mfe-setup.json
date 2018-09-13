@@ -34,7 +34,7 @@
         "preBuildCommands": [
           "npm install @types/web-bluetooth",
           "npm install aes-js",
-          "npm install @nebulae/angular-ble@1.0.0"
+          "npm install @nebulae/angular-ble@1.0.1"
         ],
         "environmentVars": {
           "default": {
