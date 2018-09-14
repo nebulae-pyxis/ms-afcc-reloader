@@ -18,7 +18,8 @@ import {
   switchMap,
   filter,
   first,
-  takeUntil
+  takeUntil,
+  take
 } from 'rxjs/operators';
 import { startWith } from 'rxjs-compat/operator/startWith';
 import { DeviceUiidResp } from './communication_profile/messages/response/device-uiid-resp';
@@ -33,9 +34,10 @@ import { AfccReloaderModelDialogComponent } from './afcc-reloader-modal-dialog/a
 })
 export class AfccReloaderComponent implements OnInit, OnDestroy {
   showLoaderSpinner = false;
-  uiid: any;
+  uiid$ = new Rx.Subject<any>();
   reloadButtonList;
   private subscribeList: Subscription[] = [];
+  private readCardSubscription: Subscription;
   batteryLevel$ = new Rx.BehaviorSubject<any>({});
   deviceName$ = new Rx.BehaviorSubject<String>('Venta carga tarjetas');
   deviceConnectionStatus$ = new Rx.BehaviorSubject<String>('DISCONNECTED');
@@ -98,20 +100,31 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.afccReloaderService.deviceConnectionStatus$
-      .subscribe(status => {
-        if (status === ConnectionStatus.DISCONNECTED) {
-          console.log('LLega desconexion');
-          this.deviceName$.next('Venta carga tarjetas');
-          this.afccReloaderService.onConnectionLost();
-          this.openModalDialog();
-        }
-        else if (status === ConnectionStatus.IDLE) {
-          this.openModalDialog();
-        }
-        this.deviceConnectionStatus$.next(status);
-      });
-    this.afccReloaderService.startNewConnection.subscribe(() => this.newConnection());
+    this.afccReloaderService.deviceConnectionStatus$.subscribe(status => {
+      if (status === ConnectionStatus.DISCONNECTED) {
+        console.log('LLega desconexion');
+        this.deviceName$.next('Venta carga tarjetas');
+        this.afccReloaderService.onConnectionLost();
+        this.openModalDialog();
+      } else if (status === ConnectionStatus.IDLE) {
+        this.openModalDialog();
+      }
+      this.deviceConnectionStatus$.next(status);
+    });
+    this.afccReloaderService.startNewConnection.subscribe(() =>
+      this.newConnection()
+    );
+    setInterval(() => {
+      if (!this.readCardSubscription) {
+        this.readCardSubscription = this.afccReloaderService.requestAfccCard$().subscribe(result => {
+          this.uiid$.next(result);
+        },
+          error => { },
+          () => {
+            this.readCardSubscription = undefined;
+          });
+      }
+     }, 2500);
   }
 
   ngOnDestroy() {
@@ -149,14 +162,20 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
           return forkJoin(
             this.afccReloaderService.getBatteryLevel$().pipe(
               tap(batteryLevel => {
-                this.batteryLevel$.next({value: batteryLevel, icon: this.batteryLevelToBatteryIcon(batteryLevel)});
+                this.batteryLevel$.next({
+                  value: batteryLevel,
+                  icon: this.batteryLevelToBatteryIcon(batteryLevel)
+                });
               })
             ),
             this.afccReloaderService.startNotifiersListener$()
           ).pipe(mapTo(gattServer));
         }),
-      tap(server => {
-        console.log('Se conecta al disp: ', (server as BluetoothRemoteGATTServer).device.name);
+        tap(server => {
+          console.log(
+            'Se conecta al disp: ',
+            (server as BluetoothRemoteGATTServer).device.name
+          );
           this.deviceName$.next(
             `Disp: ${(server as BluetoothRemoteGATTServer).device.name}`
           );
@@ -165,18 +184,18 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
         tap(() => console.log('Finaliza Auth con la lectora')),
         switchMap(() => this.afccReloaderService.onConnectionSuccessful$()),
         tap(() => console.log('Finaliza proceso de conexion')),
-        mergeMap(() =>  this.afccReloaderService.listenDeviceConnectionChanges$()),
+        mergeMap(() =>
+          this.afccReloaderService.listenDeviceConnectionChanges$()
+        ),
         tap(() => console.log('Finaliza creación de escuchadores')),
-      )
-      .subscribe(
-        status => {
-          this.afccReloaderService.deviceConnectionStatus$.next(status);
-        },
-        error => {
-          console.log(error);
-          this.afccReloaderService.deviceConnectionStatus$.next(
-            ConnectionStatus.DISCONNECTED
-          );
+        takeUntil(
+          this.afccReloaderService.getDevice$().pipe(
+            filter(device => device === undefined || device === null),
+            tap(dev => console.log('Pasa filtro y procede a desconectarse')),
+            mergeMap(() => this.afccReloaderService.stopNotifiersListeners$())
+          )
+        ),
+        catchError(error => {
           if (error.toString().includes('Bluetooth adapter not available')) {
             this.openSnackBar('Bluetooth no soportado en este equipo');
           } else {
@@ -184,12 +203,24 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
               'Fallo al establecer conexión, intentelo nuevamente'
             );
           }
+          this.afccReloaderService.disconnectDevice();
+          return of(error);
+        })
+      )
+      .subscribe(
+        status => {
+          this.afccReloaderService.deviceConnectionStatus$.next(
+            status as String
+          );
         },
-      () => {
-        console.log('Se completa OBS');
-        this.afccReloaderService.deviceConnectionStatus$.next(
-          ConnectionStatus.DISCONNECTED
-        );
+        error => {
+          console.log(error);
+        },
+        () => {
+          console.log('Se completa OBS');
+          this.afccReloaderService.deviceConnectionStatus$.next(
+            ConnectionStatus.DISCONNECTED
+          );
         }
       );
   }
@@ -197,28 +228,7 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
   disconnectDevice() {
     this.afccReloaderService.disconnectDevice();
   }
-
-  requestUiidByTime$() {
-    return interval(2000).pipe(
-      mergeMap(() => {
-        return this.afccReloaderService.cardPowerOn$().pipe(
-          mergeMap(resultPowerOn => {
-            // aqui se puede tomar el ATR en el data
-            return this.afccReloaderService.getUiid$();
-          }),
-          tap(resultUiid => {
-            const resp = new DeviceUiidResp(resultUiid);
-            this.uiid = this.afccReloaderService.authReaderService.cypherAesService.bytesTohex(
-              resp.data.slice(0, -2)
-            );
-          }),
-          mergeMap(_ => this.afccReloaderService.cardPowerOff$())
-        );
-      }),
-      catchError(error => of(`error requesting UIID`))
-    );
-  }
-/*
+  /*
   requestBatteryLevelByTime$() {
     return interval(20000).pipe(
       mergeMap(() => {
@@ -233,20 +243,20 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
 
   batteryLevelToBatteryIcon(value) {
     return !value
-    ? 'battery-unknown'
-    : value <= 20
-      ? 'battery-20'
-      : value > 20 && value <= 30
-        ? 'battery-30'
-        : value > 30 && value <= 50
-          ? 'battery-50'
-          : value > 50 && value <= 60
-            ? 'battery-60'
-            : value > 60 && value <= 80
-              ? 'battery-80'
-              : value > 80 && value <= 90
-                ? 'battery-90'
-                : 'battery-full';
+      ? 'battery-unknown'
+      : value <= 20
+        ? 'battery-20'
+        : value > 20 && value <= 30
+          ? 'battery-30'
+          : value > 30 && value <= 50
+            ? 'battery-50'
+            : value > 50 && value <= 60
+              ? 'battery-60'
+              : value > 60 && value <= 80
+                ? 'battery-80'
+                : value > 80 && value <= 90
+                  ? 'battery-90'
+                  : 'battery-full';
   }
 
   openSnackBar(text) {

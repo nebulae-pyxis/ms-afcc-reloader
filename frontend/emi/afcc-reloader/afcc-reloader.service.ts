@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import * as Rx from 'rxjs';
 import { BluetoothService } from '@nebulae/angular-ble';
 import { ConnectionStatus } from './connection-status';
-import { mergeMap, map } from 'rxjs/operators';
+import { mergeMap, map, filter, first, tap } from 'rxjs/operators';
 import { GattService } from './utils/gatt-services';
 import { MessageReaderTranslatorService } from './utils/message-reader-translator.service';
 import { SphToRdrReqAuth } from './communication_profile/messages/request/sph-to-rdr-req-auth';
@@ -16,6 +16,7 @@ import { CardPowerOn } from './communication_profile/messages/request/card-power
 import { DeviceUiidReq } from './communication_profile/messages/request/device-uiid-req';
 import { CardPowerOff } from './communication_profile/messages/request/card-power-off';
 import { DeviceConnectionStatus } from './communication_profile/messages/response/device-connection-status';
+import { DeviceUiidResp } from './communication_profile/messages/response/device-uiid-resp';
 
 @Injectable({
   providedIn: 'root'
@@ -71,6 +72,12 @@ export class AfccReloaderService {
       }
     );
   }
+
+  stopNotifiersListeners$() {
+    console.log('Se llama metodo stopNotifiersListner$!!!!!!!!!!');
+    return this.bluetoothService.stopNotifierListener$(GattService.NOTIFIER.SERVICE,
+      GattService.NOTIFIER.READER);
+   }
 
   onConnectionSuccessful$() {
     return Rx.defer(() => {
@@ -131,10 +138,36 @@ export class AfccReloaderService {
       0x74,
       0x68
     ]);
+    this.disconnectDevice();
   }
 
   getBatteryLevel$() {
     return this.bluetoothService.getBatteryLevel$();
+  }
+
+  requestAfccCard$() {
+    return this.deviceConnectionStatus$.pipe(
+      filter(connectionStatus => connectionStatus === ConnectionStatus.CONNECTED),
+      first(),
+      mergeMap(() => {
+        return this.cardPowerOn$().pipe(
+          mergeMap(resultPowerOn => {
+            // aqui se puede tomar el ATR en el data
+            return this.getUiid$();
+          }),
+          mergeMap(resultUiid =>
+            this.cardPowerOff$().pipe(
+              map(_ => {
+                const resp = new DeviceUiidResp(resultUiid);
+                // TODO: GET AND CONVERT ALL DATA OF CARD HERE
+                return this.authReaderService.cypherAesService.bytesTohex(
+                  resp.data.slice(0, -2)
+                );
+              })
+              )
+          )
+        );
+      }));
   }
 
   cardPowerOn$() {
@@ -180,4 +213,6 @@ export class AfccReloaderService {
       this.authReaderService.sessionKey
     );
   }
+
+
 }
