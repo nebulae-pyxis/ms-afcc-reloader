@@ -1,9 +1,8 @@
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs/Observable';
 import * as Rx from 'rxjs';
 import { BluetoothService } from '@nebulae/angular-ble';
 import { ConnectionStatus } from './connection-status';
-import { mergeMap, map, switchMap } from 'rxjs/operators';
+import { mergeMap, map } from 'rxjs/operators';
 import { GattService } from './utils/gatt-services';
 import { MessageReaderTranslatorService } from './utils/message-reader-translator.service';
 import { SphToRdrReqAuth } from './communication_profile/messages/request/sph-to-rdr-req-auth';
@@ -16,73 +15,41 @@ import { ApduCommandReq } from './communication_profile/messages/request/apdu-co
 import { CardPowerOn } from './communication_profile/messages/request/card-power-on';
 import { DeviceUiidReq } from './communication_profile/messages/request/device-uiid-req';
 import { CardPowerOff } from './communication_profile/messages/request/card-power-off';
+import { DeviceConnectionStatus } from './communication_profile/messages/response/device-connection-status';
 
-@Injectable()
+@Injectable({
+  providedIn: 'root'
+})
 export class AfccReloaderService {
-  _deviceConnectionStatus = new Rx.BehaviorSubject<String>('DISCONNECTED');
-  private _batteryLevel = new Rx.Subject<number>();
-  private _gattServer = new Rx.Subject<any>();
+  deviceConnectionStatus$ = new Rx.BehaviorSubject<String>('DISCONNECTED');
+  startNewConnection = new Rx.Subject();
   currentDevice: any;
-  private initiatedNotifierList = [];
-  deviceStartIdleSubscription = new Rx.Subscription;
-  deviceStopIdleSubscription = new Rx.Subscription;
+  deviceStartIdleSubscription = new Rx.Subscription();
+  deviceStopIdleSubscription = new Rx.Subscription();
   uiid;
   constructor(
     private bluetoothService: BluetoothService,
     private messageReaderTranslator: MessageReaderTranslatorService,
     public authReaderService: AuthReaderService
   ) {
-    this.bluetoothService.getDevice$().subscribe(device => {
-      if (!device) {
-        this._deviceConnectionStatus.next(ConnectionStatus.DISCONNECTED);
-      }
-      this.currentDevice = device;
-    });
   }
 
-  changeDeviceConnectionStatus(status) {
-    this._deviceConnectionStatus.next(status);
-  }
-
-  deviceConnectionStatusListener$() {
-    return this._deviceConnectionStatus.asObservable();
-  }
-
-  changeGattServer(gattServer) {
-    this._gattServer.next(gattServer);
-  }
-
-  gattServerListener$() {
-    return this._gattServer.asObservable();
-  }
-
-  changeBatteryLevel(newBatteryLevel) {
-    this._batteryLevel.next(newBatteryLevel);
-  }
-
-  batteryLevelListener$() {
-    return this._batteryLevel.asObservable();
+  getDevice$() {
+    return this.bluetoothService.getDevice$();
   }
 
   stablishNewConnection$() {
-
     return this.bluetoothService.connectDevice$({
       optionalServices: [GattService.NOTIFIER.SERVICE],
       filters: [{ namePrefix: 'ACR' }]
     });
   }
 
-  disconnectDevice$() {
-    return Rx.of(undefined).pipe(
-      mergeMap(_ => {
-        this.bluetoothService.disconnectDevice();
-        return Rx.of('Device disconnected');
-      })
-    );
+  disconnectDevice() {
+    this.bluetoothService.disconnectDevice();
   }
 
   startAuthReader$() {
-    this.startNotifierListener();
     return this.authReaderService.sendAuthPhaseOne$().pipe(
       map(authPhaseOneResp => new RdrToSphAuthRsp1(authPhaseOneResp)),
       mergeMap(authPhaseOneRespFormated => {
@@ -93,49 +60,77 @@ export class AfccReloaderService {
     );
   }
 
-  onConnectionSuccessful() {
-    this.authReaderService.changeCypherMasterKey(Array.
-      from(Commons.concatenate(this.authReaderService.rndA.slice(0, 8), this.authReaderService.rndB.slice(0, 8))));
-    this._deviceConnectionStatus.next(ConnectionStatus.CONNECTED);
-    // Start the reader connection status listeners
-    this.deviceStartIdleSubscription = this.bluetoothService
-      .subscribeToNotifierListener([{ position: 3, byteToMatch: 0x52 }], this.authReaderService.sessionKey)
-      .subscribe(sleepModeMessage => {
-        this._deviceConnectionStatus.next(ConnectionStatus.IDLE);
-      });
-    this.deviceStopIdleSubscription = this.bluetoothService
-      .subscribeToNotifierListener([{ position: 3, byteToMatch: 0x50 }], this.authReaderService.sessionKey)
-      .subscribe(sleepModeMessage => {
-        this._deviceConnectionStatus.next(ConnectionStatus.CONNECTED);
-      });
+  startNotifiersListener$() {
+    return this.bluetoothService.startNotifierListener$(
+      GattService.NOTIFIER.SERVICE,
+      GattService.NOTIFIER.READER,
+      {
+        startByte: 0x05,
+        stopByte: 0x0a,
+        lengthPosition: { start: 1, end: 3, lengthPadding: 5 }
+      }
+    );
   }
+
+  onConnectionSuccessful$() {
+    return Rx.defer(() => {
+      this.authReaderService.changeCypherMasterKey(
+        Array.from(
+          Commons.concatenate(
+            this.authReaderService.rndA.slice(0, 8),
+            this.authReaderService.rndB.slice(0, 8)
+          )
+        )
+      );
+      this.deviceConnectionStatus$.next(ConnectionStatus.CONNECTED);
+      return Rx.of('connection succeful');
+    });
+  }
+
+  listenDeviceConnectionChanges$() {
+    return Rx.merge(
+      this.bluetoothService.subscribeToNotifierListener(
+        [{ position: 3, byteToMatch: MessageType.START_IDLE_STATUS }],
+        this.authReaderService.sessionKey
+      ),
+      this.bluetoothService.subscribeToNotifierListener(
+        [{ position: 3, byteToMatch: MessageType.STOP_IDLE_STATUS }],
+        this.authReaderService.sessionKey
+      )
+    ).pipe(
+      map(message => {
+        const deviceConnectionStatusResp = new DeviceConnectionStatus(message);
+        switch (deviceConnectionStatusResp.cmdMessageType) {
+          // this case represents MessageType.START_IDLE_STATUS
+          case '52':
+            return ConnectionStatus.IDLE;
+          // this case represents MessageType.STOP_IDLE_STATUS
+          case '50':
+            return ConnectionStatus.CONNECTED;
+        }
+      })
+    );
+   }
 
   onConnectionLost() {
     this.authReaderService.changeCypherMasterKey([
-      0x41, 0x43, 0x52, 0x31, 0x32, 0x35, 0x35, 0x55, 0x2D, 0x4A, 0x31, 0x20, 0x41, 0x75, 0x74, 0x68
+      0x41,
+      0x43,
+      0x52,
+      0x31,
+      0x32,
+      0x35,
+      0x35,
+      0x55,
+      0x2d,
+      0x4a,
+      0x31,
+      0x20,
+      0x41,
+      0x75,
+      0x74,
+      0x68
     ]);
-    this.deviceStartIdleSubscription.unsubscribe();
-    this.deviceStopIdleSubscription.unsubscribe();
-  }
-
-  startNotifierListener() {
-    this.bluetoothService
-      .startNotifierListener$(
-        GattService.NOTIFIER.SERVICE,
-        GattService.NOTIFIER.READER,
-        {
-          startByte: 0x05,
-          stopByte: 0x0a,
-          lengthPosition: { start: 1, end: 3, lengthPadding: 5 }
-        }
-      )
-      .pipe()
-      .subscribe(result => {
-        this.initiatedNotifierList.push({
-          service: GattService.NOTIFIER.SERVICE,
-          characteristic: GattService.NOTIFIER.READER
-        });
-      });
   }
 
   getBatteryLevel$() {
@@ -144,9 +139,10 @@ export class AfccReloaderService {
 
   cardPowerOn$() {
     const cardPoweOnReq = new CardPowerOn(new Uint8Array(0));
-    const message = this.messageReaderTranslator.generateMessageRequestFormat(cardPoweOnReq);
-    return this.bluetoothService
-    .sendAndWaitResponse$(
+    const message = this.messageReaderTranslator.generateMessageRequestFormat(
+      cardPoweOnReq
+    );
+    return this.bluetoothService.sendAndWaitResponse$(
       message,
       GattService.NOTIFIER.SERVICE,
       GattService.NOTIFIER.WRITER,
@@ -157,9 +153,10 @@ export class AfccReloaderService {
 
   cardPowerOff$() {
     const cardPoweOffReq = new CardPowerOff(new Uint8Array(0));
-    const message = this.messageReaderTranslator.generateMessageRequestFormat(cardPoweOffReq);
-    return this.bluetoothService
-    .sendAndWaitResponse$(
+    const message = this.messageReaderTranslator.generateMessageRequestFormat(
+      cardPoweOffReq
+    );
+    return this.bluetoothService.sendAndWaitResponse$(
       message,
       GattService.NOTIFIER.SERVICE,
       GattService.NOTIFIER.WRITER,
@@ -169,10 +166,13 @@ export class AfccReloaderService {
   }
 
   getUiid$() {
-    const uiidReq = new DeviceUiidReq(new Uint8Array([0xFF, 0xCA, 0x00, 0x00, 0x00]));
-    const message = this.messageReaderTranslator.generateMessageRequestFormat(uiidReq);
-    return this.bluetoothService
-    .sendAndWaitResponse$(
+    const uiidReq = new DeviceUiidReq(
+      new Uint8Array([0xff, 0xca, 0x00, 0x00, 0x00])
+    );
+    const message = this.messageReaderTranslator.generateMessageRequestFormat(
+      uiidReq
+    );
+    return this.bluetoothService.sendAndWaitResponse$(
       message,
       GattService.NOTIFIER.SERVICE,
       GattService.NOTIFIER.WRITER,
@@ -181,5 +181,3 @@ export class AfccReloaderService {
     );
   }
 }
-
-

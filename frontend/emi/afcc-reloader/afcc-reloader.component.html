@@ -12,12 +12,12 @@
       fxLayout.gt-xs="row" fxLayoutAlign.gt-xs="space-between center">
 
       <!-- APP TITLE -->
-      <div *ngIf="connectionStatus === 'CONNECTED'" class="logo my-12 m-sm-0" fxLayout="row" fxLayoutAlign="start center">
+      <div *ngIf="(deviceConnectionStatus$ | async) === 'CONNECTED'" class="logo my-12 m-sm-0" fxLayout="row" fxLayoutAlign="start center">
         <mat-icon class="logo-icon mr-16" *fuseIfOnDom [@animate]="{value:'*',params:{delay:'50ms',scale:'0.2'}}">bluetooth</mat-icon>
-        <span class="logo-text h1" *fuseIfOnDom [@animate]="{value:'*',params:{delay:'100ms',x:'-25px'}}">{{afccTittle}}</span>
+        <span class="logo-text h1" *fuseIfOnDom [@animate]="{value:'*',params:{delay:'100ms',x:'-25px'}}">{{deviceName$ | async}}</span>
       </div>
 
-      <div *ngIf="connectionStatus !== 'CONNECTED'">
+      <div *ngIf="(deviceConnectionStatus$ | async) !== 'CONNECTED'">
         <span class="logo-text h1" *fuseIfOnDom [@animate]="{value:'*',params:{delay:'100ms',x:'-25px'}}">Venta carga
           tarjeta</span>
       </div>
@@ -25,26 +25,26 @@
       <!-- / BUTTON STATUS -->
 
       <div style="margin-bottom: 20px" fxLayout="row" fxLayout.gt-sm="row">
-        <button *ngIf="connectionStatus === 'CONNECTED'" mat-mini-fab style="margin-right:16px;">
-          <mat-icon svgIcon="{{batteryLevelIcon}}"></mat-icon>
+        <button *ngIf="(deviceConnectionStatus$ | async) === 'CONNECTED'" mat-mini-fab style="margin-right:16px;">
+          <mat-icon svgIcon="{{(batteryLevel$ | async).icon}}"></mat-icon>
         </button>
-        <div *ngIf="connectionStatus === 'DISCONNECTED'" class="red">
+        <div *ngIf="(deviceConnectionStatus$ | async) === 'DISCONNECTED'" class="red">
           <button mat-mini-fab (click)="newConnection()">
             <mat-icon>cancel</mat-icon>
           </button>
         </div>
-        <div *ngIf="connectionStatus === 'IDLE'" class="gray">
+        <div *ngIf="(deviceConnectionStatus$ | async) === 'IDLE'" class="gray">
           <button mat-mini-fab (click)="newConnection()">
             <mat-icon>report_off</mat-icon>
           </button>
         </div>
-        <div *ngIf="connectionStatus === 'CONNECTED'" class="green">
-          <button mat-mini-fab (click)="newConnection()">
-            <mat-icon aria-label="Example icon-button with a heart icon">check_circle</mat-icon>
+        <div *ngIf="(deviceConnectionStatus$ | async) === 'CONNECTED'" class="green">
+          <button mat-mini-fab (click)="disconnectDevice()">
+            <mat-icon>check_circle</mat-icon>
           </button>
         </div>
-        <button *ngIf="showLoaderSpinner" mat-mini-fab (click)="newConnection()">
-          <mat-progress-spinner *ngIf="showLoaderSpinner" class="loader-spinner" diameter="20" mode="indeterminate">
+        <button *ngIf="(deviceConnectionStatus$ | async) === 'CONNECTING'" mat-mini-fab (click)="newConnection()">
+          <mat-progress-spinner class="loader-spinner" diameter="20" mode="indeterminate">
           </mat-progress-spinner>
         </button>
       </div>
@@ -87,3 +87,5 @@
   </div>
   <!-- / CENTER -->
 </div>
+
+

@@ -1,4 +1,4 @@
-<div *ngIf="connectionStatus === 'DISCONNECTED'">
+<div *ngIf="(deviceConnectionStatus$ | async) === 'DISCONNECTED'">
   <h1 mat-dialog-title>Actualmente sin conexion a la lectora</h1>
   <mat-dialog-content>
     Favor mover el botón ubicado en la parte superior de la lectora para el icono <mat-icon>bluetooth</mat-icon>
@@ -15,7 +15,7 @@
 </div>
 
 
-<div *ngIf="connectionStatus === 'IDLE'">
+<div *ngIf="(deviceConnectionStatus$ | async) === 'IDLE'">
   <h1 mat-dialog-title>Actualmente la lectora esta en modo reposo</h1>
   <mat-dialog-content>
     Favor presione el boton ubicado en el lateral derecha de la lectora para activar nuevamente la lectora

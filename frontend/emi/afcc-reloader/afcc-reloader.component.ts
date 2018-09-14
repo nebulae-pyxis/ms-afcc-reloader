@@ -5,9 +5,21 @@ import { Subscription } from 'rxjs/Subscription';
 import { ConnectionStatus } from './connection-status';
 import { MatSnackBar, MatIconRegistry, MatDialog } from '@angular/material';
 import { DomSanitizer } from '@angular/platform-browser';
-import { Observer, Observable } from 'rxjs/Rx';
+import * as Rx from 'rxjs';
 import { interval, of, forkJoin } from 'rxjs';
-import { mergeMap, map, withLatestFrom, tap, mapTo, timeout, catchError } from 'rxjs/operators';
+import {
+  mergeMap,
+  map,
+  withLatestFrom,
+  tap,
+  mapTo,
+  timeout,
+  catchError,
+  switchMap,
+  filter,
+  first,
+  takeUntil
+} from 'rxjs/operators';
 import { startWith } from 'rxjs-compat/operator/startWith';
 import { DeviceUiidResp } from './communication_profile/messages/response/device-uiid-resp';
 import { AfccReloaderModelDialogComponent } from './afcc-reloader-modal-dialog/afcc-reloader-modal-dialog.component';
@@ -19,16 +31,14 @@ import { AfccReloaderModelDialogComponent } from './afcc-reloader-modal-dialog/a
   styleUrls: ['./afcc-reloader.component.scss'],
   animations: fuseAnimations
 })
-export class AfccReloaderComponent implements OnInit, OnDestroy  {
+export class AfccReloaderComponent implements OnInit, OnDestroy {
   showLoaderSpinner = false;
-  connectionStatus = 'DISCONNECTED';
-  batteryLevel;
-  batteryLevelIcon = 'battery-unknown';
-  batteryLevelSub: Subscription;
-  uiidSub: Subscription;
-  afccTittle = '';
   uiid: any;
   reloadButtonList;
+  private subscribeList: Subscription[] = [];
+  batteryLevel$ = new Rx.BehaviorSubject<any>({});
+  deviceName$ = new Rx.BehaviorSubject<String>('Venta carga tarjetas');
+  deviceConnectionStatus$ = new Rx.BehaviorSubject<String>('DISCONNECTED');
 
   constructor(
     private afccReloaderService: AfccReloaderService,
@@ -88,74 +98,35 @@ export class AfccReloaderComponent implements OnInit, OnDestroy  {
   }
 
   ngOnInit() {
-    this.afccReloaderService
-      .deviceConnectionStatusListener$()
+    this.afccReloaderService.deviceConnectionStatus$
       .subscribe(status => {
-        this.showLoaderSpinner = status === ConnectionStatus.CONNECTING;
-        this.connectionStatus = status as string;
-        if (this.connectionStatus === ConnectionStatus.CONNECTED) {
-          this.batteryLevelSub = this.requestBatteryLevelByTime$()
-            .map(result => {
-              this.batteryLevel = result;
-              return this.batteryLevelToBatteryIcon(result);
-            })
-            .subscribe(batteryLevelIcon => {
-              this.batteryLevelIcon = batteryLevelIcon;
-            });
-          this.uiidSub = this.requestUiidByTime$().subscribe();
-        } else if (this.connectionStatus === ConnectionStatus.DISCONNECTED) {
-          this.openModalDialog();
+        if (status === ConnectionStatus.DISCONNECTED) {
+          console.log('LLega desconexion');
+          this.deviceName$.next('Venta carga tarjetas');
           this.afccReloaderService.onConnectionLost();
-          this.afccTittle = '';
-          if (this.batteryLevelSub) {
-            this.batteryLevel = 0;
-            this.batteryLevelIcon = 'battery-unknown';
-            this.batteryLevelSub.unsubscribe();
-          }
-          if (this.uiidSub) {
-            this.uiid = '';
-            this.uiidSub.unsubscribe();
-          }
-        }
-        else if (this.connectionStatus === ConnectionStatus.IDLE) {
           this.openModalDialog();
         }
+        else if (status === ConnectionStatus.IDLE) {
+          this.openModalDialog();
+        }
+        this.deviceConnectionStatus$.next(status);
       });
-
-    this.afccReloaderService.batteryLevelListener$().subscribe(batteryLevel => {
-      this.batteryLevel = batteryLevel;
-      this.batteryLevelIcon = this.batteryLevelToBatteryIcon(
-        batteryLevel
-      );
-    });
-
-    this.afccReloaderService.gattServerListener$().subscribe(gattServer => {
-      this.afccTittle = `Disp: ${
-        (gattServer as BluetoothRemoteGATTServer).device.name
-      }`;
-      this.openSnackBar(
-        'Conexión establecida con el dispositivo: ' +
-          (gattServer as BluetoothRemoteGATTServer).device.name
-      );
-    });
-    this.reloadButtonList = [
-      { cols: 1, rows: 1, buttonValue: 2000, color: 'lightblue' },
-      { cols: 1, rows: 1, buttonValue: 5000, color: 'lightblue' },
-      { cols: 1, rows: 1, buttonValue: 10000, color: 'lightblue' },
-      { cols: 1, rows: 1, buttonValue: 15000, color: 'lightblue' },
-      { cols: 1, rows: 1, buttonValue: 20000, color: 'lightblue' },
-      { cols: 1, rows: 1, buttonValue: 30000, color: 'lightblue' },
-      { cols: 1, rows: 1, buttonValue: 40000, color: 'lightblue' },
-      { cols: 1, rows: 1, buttonValue: 50000, color: 'lightblue' },
-      { cols: 1, rows: 1, buttonValue: 0, color: 'lightblue' }
-    ];
+    this.afccReloaderService.startNewConnection.subscribe(() => this.newConnection());
   }
 
   ngOnDestroy() {
-    this.batteryLevelSub.unsubscribe();
-    this.afccReloaderService.changeDeviceConnectionStatus(
+    this.afccReloaderService.deviceConnectionStatus$.next(
       ConnectionStatus.DISCONNECTED
     );
+    this.removeSubscriptions();
+  }
+
+  removeSubscriptions() {
+    if (this.subscribeList) {
+      this.subscribeList.forEach(sub => {
+        sub.unsubscribe();
+      });
+    }
   }
 
   openModalDialog() {
@@ -168,33 +139,42 @@ export class AfccReloaderComponent implements OnInit, OnDestroy  {
   }
 
   newConnection() {
-    this.afccReloaderService.changeDeviceConnectionStatus(
+    this.afccReloaderService.deviceConnectionStatus$.next(
       ConnectionStatus.CONNECTING
     );
-    this.afccReloaderService.disconnectDevice$().pipe(
-      mergeMap(_ => this.afccReloaderService.stablishNewConnection$()),
-      mergeMap(gattServer => {
-        return this.afccReloaderService.getBatteryLevel$().pipe(
-          tap(batteryLevel => {
-            this.afccReloaderService.changeBatteryLevel(batteryLevel);
-          }),
-          mapTo(gattServer)
-        );
-      }),
-      mergeMap(gattServer => {
-        return this.afccReloaderService
-          .startAuthReader$()
-          .pipe(mapTo(gattServer));
-      })
-    )
+    this.afccReloaderService
+      .stablishNewConnection$()
+      .pipe(
+        mergeMap(gattServer => {
+          return forkJoin(
+            this.afccReloaderService.getBatteryLevel$().pipe(
+              tap(batteryLevel => {
+                this.batteryLevel$.next({value: batteryLevel, icon: this.batteryLevelToBatteryIcon(batteryLevel)});
+              })
+            ),
+            this.afccReloaderService.startNotifiersListener$()
+          ).pipe(mapTo(gattServer));
+        }),
+      tap(server => {
+        console.log('Se conecta al disp: ', (server as BluetoothRemoteGATTServer).device.name);
+          this.deviceName$.next(
+            `Disp: ${(server as BluetoothRemoteGATTServer).device.name}`
+          );
+        }),
+        mergeMap(_ => this.afccReloaderService.startAuthReader$()),
+        tap(() => console.log('Finaliza Auth con la lectora')),
+        switchMap(() => this.afccReloaderService.onConnectionSuccessful$()),
+        tap(() => console.log('Finaliza proceso de conexion')),
+        mergeMap(() =>  this.afccReloaderService.listenDeviceConnectionChanges$()),
+        tap(() => console.log('Finaliza creación de escuchadores')),
+      )
       .subscribe(
-        gattServer => {
-          this.afccReloaderService.onConnectionSuccessful();
-          this.afccReloaderService.changeGattServer(gattServer);
+        status => {
+          this.afccReloaderService.deviceConnectionStatus$.next(status);
         },
         error => {
           console.log(error);
-          this.afccReloaderService.changeDeviceConnectionStatus(
+          this.afccReloaderService.deviceConnectionStatus$.next(
             ConnectionStatus.DISCONNECTED
           );
           if (error.toString().includes('Bluetooth adapter not available')) {
@@ -205,30 +185,40 @@ export class AfccReloaderComponent implements OnInit, OnDestroy  {
             );
           }
         },
-        () => {}
+      () => {
+        console.log('Se completa OBS');
+        this.afccReloaderService.deviceConnectionStatus$.next(
+          ConnectionStatus.DISCONNECTED
+        );
+        }
       );
+  }
+
+  disconnectDevice() {
+    this.afccReloaderService.disconnectDevice();
   }
 
   requestUiidByTime$() {
     return interval(2000).pipe(
       mergeMap(() => {
-        return this.afccReloaderService.cardPowerOn$().
-          pipe(
-            mergeMap(resultPowerOn => {
-              // aqui se puede tomar el ATR en el data
-              return this.afccReloaderService.getUiid$();
-            }),
-            tap(resultUiid => {
-              const resp = new DeviceUiidResp(resultUiid);
-              this.uiid = this.afccReloaderService.authReaderService.cypherAesService.bytesTohex(resp.data.slice(0, -2));
-            }),
-            mergeMap(_ => this.afccReloaderService.cardPowerOff$())
-          );
+        return this.afccReloaderService.cardPowerOn$().pipe(
+          mergeMap(resultPowerOn => {
+            // aqui se puede tomar el ATR en el data
+            return this.afccReloaderService.getUiid$();
+          }),
+          tap(resultUiid => {
+            const resp = new DeviceUiidResp(resultUiid);
+            this.uiid = this.afccReloaderService.authReaderService.cypherAesService.bytesTohex(
+              resp.data.slice(0, -2)
+            );
+          }),
+          mergeMap(_ => this.afccReloaderService.cardPowerOff$())
+        );
       }),
       catchError(error => of(`error requesting UIID`))
     );
   }
-
+/*
   requestBatteryLevelByTime$() {
     return interval(20000).pipe(
       mergeMap(() => {
@@ -239,27 +229,27 @@ export class AfccReloaderComponent implements OnInit, OnDestroy  {
       })
     );
   }
+*/
 
-  batteryLevelToBatteryIcon(result) {
-    return !result
-      ? 'battery-unknown'
-      : result <= 20
-        ? 'battery-20'
-        : result > 20 && result <= 30
-          ? 'battery-30'
-          : result > 30 && result <= 50
-            ? 'battery-50'
-            : result > 50 && result <= 60
-              ? 'battery-60'
-              : result > 60 && result <= 80
-                ? 'battery-80'
-                : result > 80 && result <= 90
-                  ? 'battery-90'
-                  : 'battery-full';
+  batteryLevelToBatteryIcon(value) {
+    return !value
+    ? 'battery-unknown'
+    : value <= 20
+      ? 'battery-20'
+      : value > 20 && value <= 30
+        ? 'battery-30'
+        : value > 30 && value <= 50
+          ? 'battery-50'
+          : value > 50 && value <= 60
+            ? 'battery-60'
+            : value > 60 && value <= 80
+              ? 'battery-80'
+              : value > 80 && value <= 90
+                ? 'battery-90'
+                : 'battery-full';
   }
 
   openSnackBar(text) {
     this.snackBar.open(text, 'Cerrar', { duration: 2000 });
   }
 }
-

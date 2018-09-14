@@ -2,8 +2,9 @@ import { Component, OnInit } from '@angular/core';
 import { MatDialogRef } from '@angular/material';
 import { AfccReloaderService } from '../afcc-reloader.service';
 import { ConnectionStatus } from '../connection-status';
-import { mergeMap, tap, mapTo } from 'rxjs/operators';
+import { mergeMap, tap, mapTo, first } from 'rxjs/operators';
 import { MatSnackBar } from '@angular/material';
+import * as Rx from 'rxjs';
 
 @Component({
   // tslint:disable-next-line:component-selector
@@ -12,7 +13,8 @@ import { MatSnackBar } from '@angular/material';
   styleUrls: ['./afcc-reloader-modal-dialog.component.scss']
 })
 export class AfccReloaderModelDialogComponent implements OnInit {
-  connectionStatus = 'DISCONNECTED';
+  deviceConnectionStatus$ = new Rx.BehaviorSubject<String>('DISCONNECTED');
+  private sub: Rx.Subscription;
   constructor(
     private dialogRef: MatDialogRef<AfccReloaderModelDialogComponent>,
     private afccReloaderService: AfccReloaderService,
@@ -20,56 +22,23 @@ export class AfccReloaderModelDialogComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.afccReloaderService
-      .deviceConnectionStatusListener$()
+    this.sub = this.afccReloaderService
+      .deviceConnectionStatus$
       .subscribe(status => {
-        this.connectionStatus = status as string;
+        if (status === ConnectionStatus.CONNECTED) {
+          this.dialogRef.close();
+        }
+        this.deviceConnectionStatus$.next(status);
       });
   }
 
   newConnection() {
-    this.dialogRef.close();
-    this.afccReloaderService.changeDeviceConnectionStatus(
+    this.afccReloaderService.startNewConnection.next();
+    this.afccReloaderService.deviceConnectionStatus$.next(
       ConnectionStatus.CONNECTING
     );
-    this.afccReloaderService
-      .disconnectDevice$()
-      .pipe(
-        mergeMap(_ => this.afccReloaderService.stablishNewConnection$()),
-        mergeMap(gattServer => {
-          return this.afccReloaderService.getBatteryLevel$().pipe(
-            tap(batteryLevel => {
-              this.afccReloaderService.changeBatteryLevel(batteryLevel);
-            }),
-            mapTo(gattServer)
-          );
-        }),
-        mergeMap(gattServer => {
-          return this.afccReloaderService
-            .startAuthReader$()
-            .pipe(mapTo(gattServer));
-        })
-      )
-      .subscribe(
-        gattServer => {
-          this.afccReloaderService.onConnectionSuccessful();
-          this.afccReloaderService.changeGattServer(gattServer);
-        },
-        error => {
-          console.log(error);
-          this.afccReloaderService.changeDeviceConnectionStatus(
-            ConnectionStatus.DISCONNECTED
-          );
-          if (error.toString().includes('Bluetooth adapter not available')) {
-            this.openSnackBar('Bluetooth no soportado en este equipo');
-          } else {
-            this.openSnackBar(
-              'Fallo al establecer conexión, intentelo nuevamente'
-            );
-          }
-        },
-        () => {}
-      );
+    this.dialogRef.close();
+    this.sub.unsubscribe();
   }
 
   openSnackBar(text) {
