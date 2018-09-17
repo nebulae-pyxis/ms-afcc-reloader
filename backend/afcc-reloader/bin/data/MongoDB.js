@@ -2,7 +2,6 @@
 
 const Rx = require('rxjs');
 const MongoClient = require('mongodb').MongoClient;
-const CollectionName = "Business";
 let instance = null;
 
 class MongoDB {

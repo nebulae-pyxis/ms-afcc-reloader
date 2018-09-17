@@ -1,5 +1,4 @@
 'use strict'
-
 const MQTT = require("async-mqtt");
 const Rx = require('rxjs');
 const uuidv4 = require('uuid/v4');
@@ -123,7 +122,7 @@ class MqttBroker {
                 }
             }
         );
-        return Rx.Observable.fromPromise(this.mqttClient.publish(`${topicName}`, dataBuffer, { qos: 0 }))
+        return Rx.Observable.defer(() =>this.mqttClient.publish(`${topicName}`, dataBuffer, { qos: 0 }))
             .mapTo(uuid);
     }
 
@@ -137,7 +136,7 @@ class MqttBroker {
         return Rx.Observable.from(topics)
             .filter(topic => this.listeningTopics.indexOf(topic) === -1)
             .mergeMap(topic =>
-                Rx.Observable.fromPromise(this.mqttClient.subscribe(topic))
+                Rx.Observable.defer(() =>this.mqttClient.subscribe(topic))
                     .map(() => {
                         this.listeningTopics.push(topic);
                         return topic;
@@ -152,7 +151,7 @@ class MqttBroker {
      * Disconnect the broker and return an observable that completes when disconnected
      */
     disconnectBroker$() {
-        return Rx.Observable.fromPromise(this.mqttClient.end());
+        return Rx.Observable.defer(() => this.mqttClient.end());
     }
 }
 

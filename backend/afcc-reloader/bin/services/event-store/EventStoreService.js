@@ -1,7 +1,7 @@
 "use strict";
 const Rx = require("rxjs");
 const eventSourcing = require("../../tools/EventSourcing")();
-const helloWorld = require("../../domain/HelloWorld")();
+const afccReloaderEventConsumer = require("../../domain/AfccReloaderEventConsumer")();
 
 /**
  * Singleton instance
@@ -117,9 +117,9 @@ class EventStoreService {
     return {
 
       //Sample for handling event-sourcing events, please remove
-      HelloWorldEvent: {
-        fn: helloWorld.handleHelloWorld$,
-        obj: helloWorld
+      AfccReloadSold: {
+        fn: afccReloaderEventConsumer.handleAfccReloaded$,
+        obj: afccReloaderEventConsumer
       },
 
     };
@@ -133,8 +133,8 @@ class EventStoreService {
 
       //Sample for assoc events and aggregates, please remove
       {
-        aggregateType: "HelloWorld",
-        eventType: "HelloWorldEvent"
+        aggregateType: "Afcc",
+        eventType: "AfccReloadSold"
       },
 
     ]

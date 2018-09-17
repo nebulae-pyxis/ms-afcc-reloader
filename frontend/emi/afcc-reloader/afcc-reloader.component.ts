@@ -24,6 +24,7 @@ import {
 import { startWith } from 'rxjs-compat/operator/startWith';
 import { DeviceUiidResp } from './communication_profile/messages/response/device-uiid-resp';
 import { AfccReloaderModelDialogComponent } from './afcc-reloader-modal-dialog/afcc-reloader-modal-dialog.component';
+import { AuthReaderService } from './utils/auth-reader.service';
 
 @Component({
   // tslint:disable-next-line:component-selector
@@ -44,6 +45,7 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
 
   constructor(
     private afccReloaderService: AfccReloaderService,
+    private authReaderService: AuthReaderService,
     private snackBar: MatSnackBar,
     private iconRegistry: MatIconRegistry,
     private sanitizer: DomSanitizer,
@@ -114,17 +116,23 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
     this.afccReloaderService.startNewConnection.subscribe(() =>
       this.newConnection()
     );
+    /*
     setInterval(() => {
+      console.log('Se ejecuta interval Uiid');
       if (!this.readCardSubscription) {
+        console.log('Se ejecuta readCardSubscription');
         this.readCardSubscription = this.afccReloaderService.requestAfccCard$().subscribe(result => {
           this.uiid$.next(result);
         },
-          error => { },
+          error => {
+            this.readCardSubscription = undefined;
+          },
           () => {
             this.readCardSubscription = undefined;
           });
       }
      }, 2500);
+     */
   }
 
   ngOnDestroy() {
@@ -156,10 +164,12 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
       ConnectionStatus.CONNECTING
     );
     this.afccReloaderService
+      // Discover and connect to a device
       .stablishNewConnection$()
       .pipe(
         mergeMap(gattServer => {
           return forkJoin(
+            // get the current battery lever of the connected device
             this.afccReloaderService.getBatteryLevel$().pipe(
               tap(batteryLevel => {
                 this.batteryLevel$.next({
@@ -168,7 +178,8 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
                 });
               })
             ),
-            this.afccReloaderService.startNotifiersListener$()
+            // Start all bluetooth notifiers to the operation
+            this.authReaderService.startNotifiersListener$()
           ).pipe(mapTo(gattServer));
         }),
         tap(server => {
@@ -180,19 +191,23 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
             `Disp: ${(server as BluetoothRemoteGATTServer).device.name}`
           );
         }),
-        mergeMap(_ => this.afccReloaderService.startAuthReader$()),
+        // Start the auth process with the reader
+        mergeMap(_ => this.authReaderService.startAuthReader$()),
         tap(() => console.log('Finaliza Auth con la lectora')),
+        // if all the auth process finalize correctly, change the key and the current connection status
         switchMap(() => this.afccReloaderService.onConnectionSuccessful$()),
         tap(() => console.log('Finaliza proceso de conexion')),
         mergeMap(() =>
+          // Start the a listener with the status of the reader
           this.afccReloaderService.listenDeviceConnectionChanges$()
         ),
         tap(() => console.log('Finaliza creación de escuchadores')),
         takeUntil(
+          // end all the process if the connection with the device is lost
           this.afccReloaderService.getDevice$().pipe(
             filter(device => device === undefined || device === null),
             tap(dev => console.log('Pasa filtro y procede a desconectarse')),
-            mergeMap(() => this.afccReloaderService.stopNotifiersListeners$())
+            mergeMap(() => this.authReaderService.stopNotifiersListeners$())
           )
         ),
         catchError(error => {
@@ -228,18 +243,6 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
   disconnectDevice() {
     this.afccReloaderService.disconnectDevice();
   }
-  /*
-  requestBatteryLevelByTime$() {
-    return interval(20000).pipe(
-      mergeMap(() => {
-        if (this.connectionStatus === ConnectionStatus.CONNECTED) {
-          return this.afccReloaderService.getBatteryLevel$();
-        }
-        return of(undefined);
-      })
-    );
-  }
-*/
 
   batteryLevelToBatteryIcon(value) {
     return !value
@@ -257,6 +260,12 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
                 : value > 80 && value <= 90
                   ? 'battery-90'
                   : 'battery-full';
+  }
+
+  afccReload(amount) {
+    this.afccReloaderService.afccReload$(undefined, amount).subscribe(result => {
+      console.log('llega resultado de transaccion: ', result);
+    });
   }
 
   openSnackBar(text) {

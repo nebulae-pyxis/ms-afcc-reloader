@@ -67,18 +67,18 @@
       </div>
       <div fxLayout="column" fxLayout.gt-sm="column">
         <div fxLayout="row" fxLayout.gt-sm="row">
-          <button class="pos-button" mat-raised-button color="primary">2.000$</button>
-          <button class="pos-button" mat-raised-button color="primary">5.000$</button>
-          <button class="pos-button" mat-raised-button color="primary">10.000$</button>
+          <button class="pos-button" (click)="afccReload(2000)" mat-raised-button color="primary">2.000$</button>
+          <button class="pos-button" (click)="afccReload(5000)" mat-raised-button color="primary">5.000$</button>
+          <button class="pos-button" (click)="afccReload(10000)" mat-raised-button color="primary">10.000$</button>
         </div>
         <div fxLayout="row" fxLayout.gt-sm="row">
-          <button class="pos-button" mat-raised-button color="primary">15.000$</button>
-          <button class="pos-button" mat-raised-button color="primary">20.000$</button>
-          <button class="pos-button" mat-raised-button color="primary">30.000$</button>
+          <button class="pos-button" (click)="afccReload(15000)" mat-raised-button color="primary">15.000$</button>
+          <button class="pos-button" (click)="afccReload(20000)" mat-raised-button color="primary">20.000$</button>
+          <button class="pos-button" (click)="afccReload(30000)" mat-raised-button color="primary">30.000$</button>
         </div>
         <div fxLayout="row" fxLayout.gt-sm="row">
-          <button class="pos-button" mat-raised-button color="primary">40.000$</button>
-          <button class="pos-button" mat-raised-button color="primary">50.000$</button>
+          <button class="pos-button" (click)="afccReload(40000)" mat-raised-button color="primary">40.000$</button>
+          <button class="pos-button" (click)="afccReload(50000)" mat-raised-button color="primary">50.000$</button>
           <button class="pos-button" mat-raised-button color="primary">Otro Valor</button>
         </div>
       </div>

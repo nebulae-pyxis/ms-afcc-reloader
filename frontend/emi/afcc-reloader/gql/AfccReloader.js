@@ -1,21 +1,13 @@
-import gql from "graphql-tag";
+import gql from 'graphql-tag';
 
 // We use the gql tag to parse our query string into a query document
 
 //Hello world sample, please remove
-export const getHelloWorld = gql`
-  query getHelloWorldFromAfccReloader{
-    getHelloWorldFromAfccReloader{
-      sn      
+export const reloadAfcc = gql`
+  mutation getVoltageInRangeOfTime($input: AfccReloadInput) {
+    reloadAfcc(input: $input) {
+      code
+      message
     }
   }
 `;
-
-
-//Hello world sample, please remove
-export const AfccReloaderHelloWorldSubscription = gql`
-  subscription{
-    AfccReloaderHelloWorldSubscription{
-      sn
-  }
-}`;

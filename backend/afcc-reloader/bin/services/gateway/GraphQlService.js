@@ -1,6 +1,6 @@
 "use strict";
 
-const helloWorld = require("../../domain/HelloWorld")();
+const afccReloader = require("../../domain/AfccReloader")();
 const broker = require("../../tools/broker/BrokerFactory")();
 const Rx = require("rxjs");
 const jsonwebtoken = require("jsonwebtoken");
@@ -121,8 +121,8 @@ class GraphQlService {
 
       //Sample incoming request, please remove
       {
-        aggregateType: "HelloWorld",
-        messageType: "gateway.graphql.query.getHelloWorldFromAfccReloader",
+        aggregateType: "Afcc",
+        messageType: "gateway.graphql.mutation.reloadAfcc",
         onErrorHandler,
         onCompleteHandler
       },      
@@ -135,9 +135,9 @@ class GraphQlService {
   generateFunctionMap() {    
     return {
       //Sample incoming request, please remove
-      "gateway.graphql.query.getHelloWorldFromAfccReloader": {
-        fn: helloWorld.getHelloWorld$,
-        obj: helloWorld
+      "gateway.graphql.mutation.reloadAfcc": {
+        fn: afccReloader.reloadAfcc$,
+        obj: afccReloader
       },      
     };
   }

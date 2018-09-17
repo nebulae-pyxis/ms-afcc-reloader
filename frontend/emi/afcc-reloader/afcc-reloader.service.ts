@@ -5,18 +5,17 @@ import { ConnectionStatus } from './connection-status';
 import { mergeMap, map, filter, first, tap } from 'rxjs/operators';
 import { GattService } from './utils/gatt-services';
 import { MessageReaderTranslatorService } from './utils/message-reader-translator.service';
-import { SphToRdrReqAuth } from './communication_profile/messages/request/sph-to-rdr-req-auth';
-import { CypherAesService } from '@nebulae/angular-ble';
 import { MessageType } from './communication_profile/message-type';
-import { RdrToSphAuthRsp1 } from './communication_profile/messages/response/rdr-to-sph-auth-resp1';
+
 import { AuthReaderService } from './utils/auth-reader.service';
 import { Commons } from './utils/commons';
-import { ApduCommandReq } from './communication_profile/messages/request/apdu-command-req';
 import { CardPowerOn } from './communication_profile/messages/request/card-power-on';
 import { DeviceUiidReq } from './communication_profile/messages/request/device-uiid-req';
 import { CardPowerOff } from './communication_profile/messages/request/card-power-off';
 import { DeviceConnectionStatus } from './communication_profile/messages/response/device-connection-status';
 import { DeviceUiidResp } from './communication_profile/messages/response/device-uiid-resp';
+import { GatewayService } from '../../../api/gateway.service';
+import { reloadAfcc } from './gql/AfccReloader';
 
 @Injectable({
   providedIn: 'root'
@@ -31,14 +30,19 @@ export class AfccReloaderService {
   constructor(
     private bluetoothService: BluetoothService,
     private messageReaderTranslator: MessageReaderTranslatorService,
-    public authReaderService: AuthReaderService
-  ) {
-  }
-
+    private authReaderService: AuthReaderService,
+    private gateway: GatewayService
+  ) {}
+  /**
+   * Get the current device connected in bluetooth
+   */
   getDevice$() {
     return this.bluetoothService.getDevice$();
   }
 
+  /**
+   * Discover and stablish a connection with a device
+   */
   stablishNewConnection$() {
     return this.bluetoothService.connectDevice$({
       optionalServices: [GattService.NOTIFIER.SERVICE],
@@ -46,39 +50,16 @@ export class AfccReloaderService {
     });
   }
 
+  /**
+   * disconnect from the current device
+   */
   disconnectDevice() {
     this.bluetoothService.disconnectDevice();
   }
 
-  startAuthReader$() {
-    return this.authReaderService.sendAuthPhaseOne$().pipe(
-      map(authPhaseOneResp => new RdrToSphAuthRsp1(authPhaseOneResp)),
-      mergeMap(authPhaseOneRespFormated => {
-        return this.authReaderService.sendAuthPhaseTwo$(
-          authPhaseOneRespFormated
-        );
-      })
-    );
-  }
-
-  startNotifiersListener$() {
-    return this.bluetoothService.startNotifierListener$(
-      GattService.NOTIFIER.SERVICE,
-      GattService.NOTIFIER.READER,
-      {
-        startByte: 0x05,
-        stopByte: 0x0a,
-        lengthPosition: { start: 1, end: 3, lengthPadding: 5 }
-      }
-    );
-  }
-
-  stopNotifiersListeners$() {
-    console.log('Se llama metodo stopNotifiersListner$!!!!!!!!!!');
-    return this.bluetoothService.stopNotifierListener$(GattService.NOTIFIER.SERVICE,
-      GattService.NOTIFIER.READER);
-   }
-
+  /**
+   * change the reader key to the session key and change the state to connected
+   */
   onConnectionSuccessful$() {
     return Rx.defer(() => {
       this.authReaderService.changeCypherMasterKey(
@@ -94,6 +75,9 @@ export class AfccReloaderService {
     });
   }
 
+  /**
+   * lestien the reader connection status
+   */
   listenDeviceConnectionChanges$() {
     return Rx.merge(
       this.bluetoothService.subscribeToNotifierListener(
@@ -117,8 +101,10 @@ export class AfccReloaderService {
         }
       })
     );
-   }
-
+  }
+  /**
+   * change the session key to the reader key
+   */
   onConnectionLost() {
     this.authReaderService.changeCypherMasterKey([
       0x41,
@@ -141,21 +127,31 @@ export class AfccReloaderService {
     this.disconnectDevice();
   }
 
+  /**
+   * get the current device battery level
+   */
   getBatteryLevel$() {
     return this.bluetoothService.getBatteryLevel$();
   }
-
+  /**
+   * get the uiid of the current card
+   */
   requestAfccCard$() {
     return this.deviceConnectionStatus$.pipe(
-      filter(connectionStatus => connectionStatus === ConnectionStatus.CONNECTED),
+      filter(
+        connectionStatus => connectionStatus === ConnectionStatus.CONNECTED
+      ),
       first(),
       mergeMap(() => {
+        // start the read process in the reader
         return this.cardPowerOn$().pipe(
           mergeMap(resultPowerOn => {
-            // aqui se puede tomar el ATR en el data
+            // TODO: aqui se puede tomar el ATR en el data
+            // get the uiid of the current card
             return this.getUiid$();
           }),
           mergeMap(resultUiid =>
+            // close the read process in the reader
             this.cardPowerOff$().pipe(
               map(_ => {
                 const resp = new DeviceUiidResp(resultUiid);
@@ -164,12 +160,15 @@ export class AfccReloaderService {
                   resp.data.slice(0, -2)
                 );
               })
-              )
+            )
           )
         );
-      }));
+      })
+    );
   }
-
+  /**
+   * start the read process in the reader
+   */
   cardPowerOn$() {
     const cardPoweOnReq = new CardPowerOn(new Uint8Array(0));
     const message = this.messageReaderTranslator.generateMessageRequestFormat(
@@ -183,7 +182,9 @@ export class AfccReloaderService {
       this.authReaderService.sessionKey
     );
   }
-
+  /**
+   * close the read process in the reader
+   */
   cardPowerOff$() {
     const cardPoweOffReq = new CardPowerOff(new Uint8Array(0));
     const message = this.messageReaderTranslator.generateMessageRequestFormat(
@@ -197,7 +198,9 @@ export class AfccReloaderService {
       this.authReaderService.sessionKey
     );
   }
-
+  /**
+   * get the uiid of the current card
+   */
   getUiid$() {
     const uiidReq = new DeviceUiidReq(
       new Uint8Array([0xff, 0xca, 0x00, 0x00, 0x00])
@@ -214,5 +217,20 @@ export class AfccReloaderService {
     );
   }
 
-
+  afccReload$(afcc, amount) {
+    console.log('llega amount: ', amount);
+    return this.gateway.apollo.mutate<any>({
+      mutation: reloadAfcc,
+      variables: {
+        input: {
+          id: 'sdfsdfqw423423',
+          cardUiid: 'sdfs342wdvv',
+          currentBalance: 2000,
+          cardMapping: 'cardMappingSample',
+          amount: amount
+        }
+      },
+      errorPolicy: 'all'
+    });
+  }
 }
