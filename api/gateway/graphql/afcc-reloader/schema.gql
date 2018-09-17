@@ -1,8 +1,25 @@
 
-type MasterKeyReader{
-  value: String!  
+type CommandResponse {
+  "Response code"
+  code: Int
+  "Response message"
+  message: String
 }
 
-type Query {
-  getMasterKey: MasterKeyReader
+input AfccReloadInput {
+  "AFCC id"
+  id: ID!
+  "card Uiid"
+  cardUiid: String
+  "current balance"
+  currentBalance: Float
+  "Card mapping"
+  cardMapping: String
+  "amount to reload"
+  amount: Float
+}
+
+type Mutation {
+  "Reload an Afcc with the specified balance"
+  reloadAfcc(input: AfccReloadInput): CommandResponse
 }
