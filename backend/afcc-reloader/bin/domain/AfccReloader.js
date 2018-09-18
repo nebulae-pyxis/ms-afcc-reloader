@@ -15,16 +15,35 @@ class AfccReloader {
     const afccReload = args.input;
     return AfccReloadValidationHelper.validateAfccReload$(args.input, authToken)
       .mergeMap(() => { 
-        return eventSourcing.eventStore.emitEvent$(
+        return eventSourcing.eventStore.emitEvent$(      
           new Event({
-            eventType: 'AfccReloadSold',
-            eventTypeVersion: 1,
-            aggregateType: 'Afcc',
-            aggregateId: afccReload.id,
-            data: afccReload,
-            //TODO: aca se debe colocar el usuario que periste el evento
-            user: 'SYSTEM.AfccReload.afcc'
-          })
+            amount: afccReload.amount,
+            businessId:  authToken.businessId,
+            afcc: {
+              data: {
+                //TODO: change to real data
+                before: {},
+                //TODO: change to real data
+                after: {}
+              },
+              uId: afccReload.cardUiid,
+              cardId: afccReload.id,
+              balance: {
+                //TODO: change to real data
+                before: 1000,
+                //TODO: change to real data
+                after: 2000
+              }
+            },
+            source: {
+              //TODO: change to real data
+              machine: "Nesas-12",
+              //TODO: change to real data
+              ip: "192.168.1.15"
+            }
+            
+          }
+          )
         )
       })
       .map(() => { 
@@ -32,6 +51,16 @@ class AfccReloader {
       })
       .mergeMap(rawResponse => this.buildSuccessResponse$(rawResponse))
       .catch(error => this.handleError$(error));
+  }
+
+  getMasterKeyReloader$({ root, args, jwt }, authToken) { 
+    return AfccReloadValidationHelper.checkRole$(authToken, 'getMasterKeyReloader$')
+      .map(() => { 
+        return {code: 200, key: JSON.parse("["+(process.env.AFCC_MASTER_KEY_READER) +"]")}
+      })
+      .mergeMap(rawResponse => this.buildSuccessResponse$(rawResponse))
+      .catch(error => this.handleError$(error));;
+    
   }
 
   handleError$(err) {

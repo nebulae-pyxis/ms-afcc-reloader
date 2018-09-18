@@ -6,6 +6,11 @@ type CommandResponse {
   message: String
 }
 
+type ReaderKeyResponse {
+  code: Int
+  key: [Int]
+}
+
 input AfccReloadInput {
   "AFCC id"
   id: ID!
@@ -22,4 +27,7 @@ input AfccReloadInput {
 type Mutation {
   "Reload an Afcc with the specified balance"
   reloadAfcc(input: AfccReloadInput): CommandResponse
+}
+type Query {
+  getMasterKeyReloader: ReaderKeyResponse
 }

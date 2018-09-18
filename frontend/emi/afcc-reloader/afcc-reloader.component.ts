@@ -38,7 +38,6 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
   uiid$ = new Rx.Subject<any>();
   reloadButtonList;
   private subscribeList: Subscription[] = [];
-  private readCardSubscription: Subscription;
   batteryLevel$ = new Rx.BehaviorSubject<any>({});
   deviceName$ = new Rx.BehaviorSubject<String>('Venta carga tarjetas');
   deviceConnectionStatus$ = new Rx.BehaviorSubject<String>('DISCONNECTED');
@@ -102,6 +101,9 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    // get the key reader to cypher and decypher the messages reader
+    this.authReaderService.getKeyReaderAndConfigCypherData$().subscribe();
+    // Listen changes on connection
     this.afccReloaderService.deviceConnectionStatus$.subscribe(status => {
       if (status === ConnectionStatus.DISCONNECTED) {
         console.log('LLega desconexion');
@@ -113,9 +115,22 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
       }
       this.deviceConnectionStatus$.next(status);
     });
+    // Listen changes on batteryLevel
+    this.afccReloaderService.batteryLevel$.subscribe(batteryLevel => {
+      this.batteryLevel$.next({
+        value: batteryLevel,
+        icon: this.batteryLevelToBatteryIcon(batteryLevel)
+      });
+    });
+    // Listen change on device name
+    this.afccReloaderService.deviceName$.subscribe(name => {
+      this.deviceName$.next(name);
+    });
+    // Listen the button of new connection located in the modal dialog
     this.afccReloaderService.startNewConnection.subscribe(() =>
       this.newConnection()
     );
+
     /*
     setInterval(() => {
       console.log('Se ejecuta interval Uiid');
@@ -160,73 +175,17 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
   }
 
   newConnection() {
-    this.afccReloaderService.deviceConnectionStatus$.next(
-      ConnectionStatus.CONNECTING
-    );
-    this.afccReloaderService
-      // Discover and connect to a device
-      .stablishNewConnection$()
-      .pipe(
-        mergeMap(gattServer => {
-          return forkJoin(
-            // get the current battery lever of the connected device
-            this.afccReloaderService.getBatteryLevel$().pipe(
-              tap(batteryLevel => {
-                this.batteryLevel$.next({
-                  value: batteryLevel,
-                  icon: this.batteryLevelToBatteryIcon(batteryLevel)
-                });
-              })
-            ),
-            // Start all bluetooth notifiers to the operation
-            this.authReaderService.startNotifiersListener$()
-          ).pipe(mapTo(gattServer));
-        }),
-        tap(server => {
-          console.log(
-            'Se conecta al disp: ',
-            (server as BluetoothRemoteGATTServer).device.name
-          );
-          this.deviceName$.next(
-            `Disp: ${(server as BluetoothRemoteGATTServer).device.name}`
-          );
-        }),
-        // Start the auth process with the reader
-        mergeMap(_ => this.authReaderService.startAuthReader$()),
-        tap(() => console.log('Finaliza Auth con la lectora')),
-        // if all the auth process finalize correctly, change the key and the current connection status
-        switchMap(() => this.afccReloaderService.onConnectionSuccessful$()),
-        tap(() => console.log('Finaliza proceso de conexion')),
-        mergeMap(() =>
-          // Start the a listener with the status of the reader
-          this.afccReloaderService.listenDeviceConnectionChanges$()
-        ),
-        tap(() => console.log('Finaliza creación de escuchadores')),
-        takeUntil(
-          // end all the process if the connection with the device is lost
-          this.afccReloaderService.getDevice$().pipe(
-            filter(device => device === undefined || device === null),
-            tap(dev => console.log('Pasa filtro y procede a desconectarse')),
-            mergeMap(() => this.authReaderService.stopNotifiersListeners$())
-          )
-        ),
-        catchError(error => {
-          if (error.toString().includes('Bluetooth adapter not available')) {
-            this.openSnackBar('Bluetooth no soportado en este equipo');
-          } else {
-            this.openSnackBar(
-              'Fallo al establecer conexión, intentelo nuevamente'
-            );
-          }
-          this.afccReloaderService.disconnectDevice();
-          return of(error);
-        })
-      )
-      .subscribe(
+    if (!this.authReaderService.keyReader) {
+      this.authReaderService.getKeyReaderAndConfigCypherData$().subscribe();
+      this.openSnackBar('Fallo al establecer conexión, intentelo nuevamente');
+      this.afccReloaderService.deviceConnectionStatus$.next(
+        ConnectionStatus.DISCONNECTED
+      );
+    }
+    else {
+      this.afccReloaderService.stablishNewConnection$().subscribe(
         status => {
-          this.afccReloaderService.deviceConnectionStatus$.next(
-            status as String
-          );
+          this.afccReloaderService.deviceConnectionStatus$.next(status as String);
         },
         error => {
           console.log(error);
@@ -238,6 +197,7 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
           );
         }
       );
+    }
   }
 
   disconnectDevice() {
@@ -263,9 +223,11 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
   }
 
   afccReload(amount) {
-    this.afccReloaderService.afccReload$(undefined, amount).subscribe(result => {
-      console.log('llega resultado de transaccion: ', result);
-    });
+    this.afccReloaderService
+      .afccReload$(undefined, amount)
+      .subscribe(result => {
+        console.log('llega resultado de transaccion: ', result);
+      });
   }
 
   openSnackBar(text) {

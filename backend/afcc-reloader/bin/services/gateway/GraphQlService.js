@@ -118,14 +118,18 @@ class GraphQlService {
     console.log("GraphQl Service starting ...");
 
     return [
-
-      //Sample incoming request, please remove
       {
         aggregateType: "Afcc",
         messageType: "gateway.graphql.mutation.reloadAfcc",
         onErrorHandler,
         onCompleteHandler
-      },      
+      },   
+      {
+        aggregateType: "Afcc",
+        messageType: "gateway.graphql.query.getMasterKeyReloader",
+        onErrorHandler,
+        onCompleteHandler
+      },   
     ];
   }
 
@@ -133,12 +137,15 @@ class GraphQlService {
    * returns a map that assocs GraphQL request with its processor
    */
   generateFunctionMap() {    
-    return {
-      //Sample incoming request, please remove
+    return {      
       "gateway.graphql.mutation.reloadAfcc": {
         fn: afccReloader.reloadAfcc$,
         obj: afccReloader
-      },      
+      },    
+      "gateway.graphql.query.getMasterKeyReloader": {
+        fn: afccReloader.getMasterKeyReloader$,
+        obj: afccReloader
+      }
     };
   }
 

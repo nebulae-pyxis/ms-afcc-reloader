@@ -52,7 +52,29 @@ function getResponseFromBackEnd$(response) {
 
 module.exports = {
   //// QUERY ///////
-
+  Query: {
+    getMasterKeyReloader(root, args, context) { 
+      return RoleValidator.checkPermissions$(
+        context.authToken.realm_access.roles,
+        'Afcc',
+        'getMasterKeyReloader',
+        USERS_PERMISSION_DENIED_ERROR_CODE,
+        'Permission denied',
+        ['pos']
+      )
+      .mergeMap(() =>
+        context.broker.forwardAndGetReply$(
+          'Afcc',
+          'gateway.graphql.query.getMasterKeyReloader',
+          { root, args, jwt: context.encodedToken },
+          2000
+        )
+      )
+      .catch(err => handleError$(err, 'getMasterKeyReloader'))
+      .mergeMap(response => getResponseFromBackEnd$(response))
+      .toPromise();
+    }
+  },
   //// MUTATIONS ///////
 
   Mutation: {

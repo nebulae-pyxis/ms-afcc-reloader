@@ -4,27 +4,27 @@ import * as Rx from 'rxjs';
 import { DataBlockRequest } from '../communication_profile/data-block-req';
 import { CypherAesService, BluetoothService } from '@nebulae/angular-ble';
 import { GattService } from './gatt-services';
-import { map, mergeMap } from 'rxjs/operators';
+import { map, mergeMap, tap } from 'rxjs/operators';
 import { RdrToSphAuthRsp1 } from '../communication_profile/messages/response/rdr-to-sph-auth-resp1';
 import { SphToRdrReqAuth } from '../communication_profile/messages/request/sph-to-rdr-req-auth';
 import { MessageReaderTranslatorService } from './message-reader-translator.service';
 import { MessageType } from '../communication_profile/message-type';
 import { SphToRfrAuthResp } from '../communication_profile/messages/request/sph-to-rfr-auth-resp';
+import { getMasterKeyReloader } from '../gql/AfccReloader';
+import { GatewayService } from '../../../../api/gateway.service';
 
 @Injectable()
 export class AuthReaderService {
   rndA;
   rndB;
   sessionKey;
+  keyReader;
   constructor(
     public cypherAesService: CypherAesService,
     private bluetoothService: BluetoothService,
-    private messageReaderTranslator: MessageReaderTranslatorService
-  ) {
-    this.cypherAesService.config([
-      0x41, 0x43, 0x52, 0x31, 0x32, 0x35, 0x35, 0x55, 0x2D, 0x4A, 0x31, 0x20, 0x41, 0x75, 0x74, 0x68
-    ]);
-  }
+    private messageReaderTranslator: MessageReaderTranslatorService,
+    private gateway: GatewayService
+  ) {}
 
   changeCypherMasterKey(masterKey) {
     this.sessionKey = masterKey;
@@ -99,5 +99,20 @@ export class AuthReaderService {
     );
   }
 
+  getKeyReaderAndConfigCypherData$() {
+    return this.gateway.apollo.query<any>({
+      query: getMasterKeyReloader,
+      errorPolicy: 'all'
+    }).pipe(
+      tap(res => console.log('llega llave: ', res)),
+      map(result => {
+      return result.data.getMasterKeyReloader.key;
+      }),
+      tap(key => {
+        this.keyReader = key;
+        this.cypherAesService.config(key);
+      })
+    );
+  }
 
 }

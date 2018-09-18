@@ -2,7 +2,17 @@ import { Injectable } from '@angular/core';
 import * as Rx from 'rxjs';
 import { BluetoothService } from '@nebulae/angular-ble';
 import { ConnectionStatus } from './connection-status';
-import { mergeMap, map, filter, first, tap } from 'rxjs/operators';
+import {
+  mergeMap,
+  map,
+  filter,
+  first,
+  tap,
+  mapTo,
+  switchMap,
+  takeUntil,
+  catchError
+} from 'rxjs/operators';
 import { GattService } from './utils/gatt-services';
 import { MessageReaderTranslatorService } from './utils/message-reader-translator.service';
 import { MessageType } from './communication_profile/message-type';
@@ -16,12 +26,15 @@ import { DeviceConnectionStatus } from './communication_profile/messages/respons
 import { DeviceUiidResp } from './communication_profile/messages/response/device-uiid-resp';
 import { GatewayService } from '../../../api/gateway.service';
 import { reloadAfcc } from './gql/AfccReloader';
+import { MatSnackBar } from '@angular/material';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AfccReloaderService {
   deviceConnectionStatus$ = new Rx.BehaviorSubject<String>('DISCONNECTED');
+  batteryLevel$ = new Rx.BehaviorSubject<any>(0);
+  deviceName$ = new Rx.BehaviorSubject<String>('Venta carga tarjetas');
   startNewConnection = new Rx.Subject();
   currentDevice: any;
   deviceStartIdleSubscription = new Rx.Subscription();
@@ -31,7 +44,8 @@ export class AfccReloaderService {
     private bluetoothService: BluetoothService,
     private messageReaderTranslator: MessageReaderTranslatorService,
     private authReaderService: AuthReaderService,
-    private gateway: GatewayService
+    private gateway: GatewayService,
+    private snackBar: MatSnackBar,
   ) {}
   /**
    * Get the current device connected in bluetooth
@@ -40,14 +54,63 @@ export class AfccReloaderService {
     return this.bluetoothService.getDevice$();
   }
 
-  /**
-   * Discover and stablish a connection with a device
-   */
   stablishNewConnection$() {
-    return this.bluetoothService.connectDevice$({
-      optionalServices: [GattService.NOTIFIER.SERVICE],
-      filters: [{ namePrefix: 'ACR' }]
-    });
+    this.deviceConnectionStatus$.next(ConnectionStatus.CONNECTING);
+    // Discover and connect to a device
+    return this.bluetoothService
+      .connectDevice$({
+        optionalServices: [GattService.NOTIFIER.SERVICE],
+        filters: [{ namePrefix: 'ACR' }]
+      })
+      .pipe(
+        mergeMap(gattServer => {
+          return Rx.forkJoin(
+            // get the current battery lever of the connected device
+            this.getBatteryLevel$().pipe(
+              tap(batteryLevel => {
+                this.batteryLevel$.next(batteryLevel);
+              })
+            ),
+            // Start all bluetooth notifiers to the operation
+            this.authReaderService.startNotifiersListener$()
+          ).pipe(mapTo(gattServer));
+        }),
+        tap(server => {
+          this.deviceName$.next(
+            `Disp: ${(server as BluetoothRemoteGATTServer).device.name}`
+          );
+        }),
+        // Start the auth process with the reader
+        mergeMap(_ => this.authReaderService.startAuthReader$()),
+        tap(() => console.log('Finaliza Auth con la lectora')),
+        // if all the auth process finalize correctly, change the key and the current connection status
+        switchMap(() => this.onConnectionSuccessful$()),
+        tap(() => console.log('Finaliza proceso de conexion')),
+        mergeMap(() =>
+          // Start the a listener with the status of the reader
+          this.listenDeviceConnectionChanges$()
+        ),
+        tap(() => console.log('Finaliza creación de escuchadores')),
+        takeUntil(
+          // end all the process if the connection with the device is lost
+          this.getDevice$().pipe(
+            filter(device => device === undefined || device === null),
+            tap(dev => console.log('Pasa filtro y procede a desconectarse')),
+            mergeMap(() => this.authReaderService.stopNotifiersListeners$())
+          )
+        ),
+        catchError(error => {
+          if (error.toString().includes('Bluetooth adapter not available')) {
+            this.openSnackBar('Bluetooth no soportado en este equipo');
+          } else {
+            this.openSnackBar(
+              'Fallo al establecer conexión, intentelo nuevamente'
+            );
+          }
+          this.disconnectDevice();
+          return Rx.of(error);
+        })
+      );
   }
 
   /**
@@ -106,24 +169,9 @@ export class AfccReloaderService {
    * change the session key to the reader key
    */
   onConnectionLost() {
-    this.authReaderService.changeCypherMasterKey([
-      0x41,
-      0x43,
-      0x52,
-      0x31,
-      0x32,
-      0x35,
-      0x35,
-      0x55,
-      0x2d,
-      0x4a,
-      0x31,
-      0x20,
-      0x41,
-      0x75,
-      0x74,
-      0x68
-    ]);
+    this.authReaderService.changeCypherMasterKey(
+      this.authReaderService.keyReader
+    );
     this.disconnectDevice();
   }
 
@@ -218,7 +266,6 @@ export class AfccReloaderService {
   }
 
   afccReload$(afcc, amount) {
-    console.log('llega amount: ', amount);
     return this.gateway.apollo.mutate<any>({
       mutation: reloadAfcc,
       variables: {
@@ -232,5 +279,9 @@ export class AfccReloaderService {
       },
       errorPolicy: 'all'
     });
+  }
+
+  openSnackBar(text) {
+    this.snackBar.open(text, 'Cerrar', { duration: 2000 });
   }
 }
