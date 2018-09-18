@@ -13,7 +13,7 @@ spec:
         app: afcc-reloader
     spec:      
       containers:
-      - image: nebulaepyxis/afcc-reloader.backend.afcc-reloader:0.0.5
+      - image: nebulaepyxis/afcc-reloader.backend.afcc-reloader:0.0.6
         name: afcc-reloader
         volumeMounts:
         - name: google-application-credentials
@@ -53,6 +53,11 @@ spec:
         # RESET LOCK INITIALIZE BACKED
         - name: LOCKVERSION
           value: "initial_lock"
+        - name: AFCC_MASTER_KEY_READER
+          valueFrom:
+           secretKeyRef:
+             name: afcc-reader
+             key: master_key_reader
         
       volumes:
       - name: google-application-credentials

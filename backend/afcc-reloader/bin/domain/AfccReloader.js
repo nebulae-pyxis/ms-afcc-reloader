@@ -56,7 +56,7 @@ class AfccReloader {
   getMasterKeyReloader$({ root, args, jwt }, authToken) { 
     return AfccReloadValidationHelper.checkRole$(authToken, 'getMasterKeyReloader$')
       .map(() => { 
-        return {code: 200, key: process.env.AFCC_MASTER_KEY_READER}
+        return {code: 200, key: JSON.parse("["+(process.env.AFCC_MASTER_KEY_READER) +"]")}
       })
       .mergeMap(rawResponse => this.buildSuccessResponse$(rawResponse))
       .catch(error => this.handleError$(error));;
