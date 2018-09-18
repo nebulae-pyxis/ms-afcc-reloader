@@ -8,7 +8,7 @@ type CommandResponse {
 
 type ReaderKeyResponse {
   code: Int
-  key: [Int]
+  key: String
 }
 
 input AfccReloadInput {

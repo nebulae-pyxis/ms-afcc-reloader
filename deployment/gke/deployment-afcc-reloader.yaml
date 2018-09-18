@@ -13,7 +13,7 @@ spec:
         app: afcc-reloader
     spec:      
       containers:
-      - image: nebulaepyxis/afcc-reloader.backend.afcc-reloader:0.0.4
+      - image: nebulaepyxis/afcc-reloader.backend.afcc-reloader:0.0.5
         name: afcc-reloader
         volumeMounts:
         - name: google-application-credentials
