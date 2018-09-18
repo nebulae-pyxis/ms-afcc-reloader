@@ -153,7 +153,7 @@ jobs:
             mkdir ~/nebulae/backend
             cp ~/nebulae/go/mbinit ~/nebulae/repo/backend/afcc-reloader/
             export DOCKERHUB_IMAGE=afcc-reloader.backend.afcc-reloader
-            export DOCKERHUB_TAG=0.0.5
+            export DOCKERHUB_TAG=0.0.7
             gitChanged backend/afcc-reloader || docker build  -t $DOCKERHUB_NAMESPACE/$DOCKERHUB_IMAGE:$DOCKERHUB_TAG -t $DOCKERHUB_NAMESPACE/$DOCKERHUB_IMAGE:latest ~/nebulae/repo/backend/afcc-reloader/
             gitChanged backend/afcc-reloader || docker login -u $DOCKERHUB_USER -p $DOCKERHUB_PASS
             gitChanged backend/afcc-reloader || docker push $DOCKERHUB_NAMESPACE/$DOCKERHUB_IMAGE:$DOCKERHUB_TAG
