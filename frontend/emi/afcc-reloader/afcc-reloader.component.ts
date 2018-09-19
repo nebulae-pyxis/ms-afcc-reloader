@@ -36,8 +36,10 @@ import { AuthReaderService } from './utils/auth-reader.service';
 export class AfccReloaderComponent implements OnInit, OnDestroy {
   showLoaderSpinner = false;
   uiid$ = new Rx.Subject<any>();
+  uidIntervalId;
   reloadButtonList;
   private subscribeList: Subscription[] = [];
+  private readCardSubscription: Subscription;
   batteryLevel$ = new Rx.BehaviorSubject<any>({});
   deviceName$ = new Rx.BehaviorSubject<String>('Venta carga tarjetas');
   deviceConnectionStatus$ = new Rx.BehaviorSubject<String>('DISCONNECTED');
@@ -109,9 +111,13 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
         console.log('LLega desconexion');
         this.deviceName$.next('Venta carga tarjetas');
         this.afccReloaderService.onConnectionLost();
+        this.stopUidPolling();
         this.openModalDialog();
       } else if (status === ConnectionStatus.IDLE) {
         this.openModalDialog();
+      }
+      else if (status === ConnectionStatus.CONNECTED) {
+        this.startUidPolling();
       }
       this.deviceConnectionStatus$.next(status);
     });
@@ -130,9 +136,17 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
     this.afccReloaderService.startNewConnection.subscribe(() =>
       this.newConnection()
     );
+  }
 
-    /*
-    setInterval(() => {
+  ngOnDestroy() {
+    this.afccReloaderService.deviceConnectionStatus$.next(
+      ConnectionStatus.DISCONNECTED
+    );
+    this.removeSubscriptions();
+  }
+
+  startUidPolling() {
+    this.uidIntervalId = setInterval(() => {
       console.log('Se ejecuta interval Uiid');
       if (!this.readCardSubscription) {
         console.log('Se ejecuta readCardSubscription');
@@ -147,14 +161,9 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
           });
       }
      }, 2500);
-     */
   }
-
-  ngOnDestroy() {
-    this.afccReloaderService.deviceConnectionStatus$.next(
-      ConnectionStatus.DISCONNECTED
-    );
-    this.removeSubscriptions();
+  stopUidPolling() {
+    clearInterval(this.uidIntervalId);
   }
 
   removeSubscriptions() {

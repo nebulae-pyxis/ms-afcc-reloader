@@ -194,22 +194,31 @@ export class AfccReloaderService {
         // start the read process in the reader
         return this.cardPowerOn$().pipe(
           mergeMap(resultPowerOn => {
+            console.log('LLEGA RESP CARD POWER ON ==========> ', this.authReaderService.cypherAesService.bytesTohex(resultPowerOn));
             // TODO: aqui se puede tomar el ATR en el data
             // get the uiid of the current card
             return this.getUiid$();
           }),
-          mergeMap(resultUiid =>
+          map(resultUiid => {
+            console.log('LLEGA RESP UID 2 ==========> ', this.authReaderService.cypherAesService.bytesTohex(resultUiid));
+            const resp = new DeviceUiidResp(resultUiid);
+            const uiid = this.authReaderService.cypherAesService.bytesTohex(
+              resp.data.slice(0, -2)
+            );
             // close the read process in the reader
-            this.cardPowerOff$().pipe(
-              map(_ => {
-                const resp = new DeviceUiidResp(resultUiid);
+            return uiid;
+          }
+          ),
+          mergeMap(uiid => {
+            return this.cardPowerOff$().pipe(
+              map(cardPoweOff => {
+                console.log('LLEGA UID: ', uiid);
+                console.log('LLEGA RESP POWER OFF ==========> ', this.authReaderService.cypherAesService.bytesTohex(cardPoweOff));
                 // TODO: GET AND CONVERT ALL DATA OF CARD HERE
-                return this.authReaderService.cypherAesService.bytesTohex(
-                  resp.data.slice(0, -2)
-                );
+                return uiid;
               })
-            )
-          )
+            );
+          })
         );
       })
     );
