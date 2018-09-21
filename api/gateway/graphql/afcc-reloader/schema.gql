@@ -11,6 +11,12 @@ type ReaderKeyResponse {
   key: [Int]
 }
 
+type RndaAuthCard {
+  timestamp: BigInt
+  samid: String
+  data: String
+}
+
 input AfccReloadInput {
   "AFCC id"
   id: ID!
@@ -30,4 +36,6 @@ type Mutation {
 }
 type Query {
   getMasterKeyReloader: ReaderKeyResponse
+
+  getRndAAuthCard(uid: String, postId: String, data: String): RndaAuthCard
 }

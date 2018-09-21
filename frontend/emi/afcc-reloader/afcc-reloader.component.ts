@@ -1,30 +1,15 @@
 import { AfccReloaderService } from './afcc-reloader.service';
-import { Component, OnDestroy, OnInit, AfterViewInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { fuseAnimations } from '../../../core/animations';
 import { Subscription } from 'rxjs/Subscription';
 import { ConnectionStatus } from './connection-status';
 import { MatSnackBar, MatIconRegistry, MatDialog } from '@angular/material';
 import { DomSanitizer } from '@angular/platform-browser';
 import * as Rx from 'rxjs';
-import { interval, of, forkJoin } from 'rxjs';
 import {
-  mergeMap,
-  map,
-  withLatestFrom,
-  tap,
-  mapTo,
-  timeout,
   catchError,
-  switchMap,
-  filter,
-  first,
-  takeUntil,
-  take
 } from 'rxjs/operators';
-import { startWith } from 'rxjs-compat/operator/startWith';
-import { DeviceUiidResp } from './communication_profile/messages/response/device-uiid-resp';
 import { AfccReloaderModelDialogComponent } from './afcc-reloader-modal-dialog/afcc-reloader-modal-dialog.component';
-import { AuthReaderService } from './utils/auth-reader.service';
 
 @Component({
   // tslint:disable-next-line:component-selector
@@ -46,7 +31,6 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
 
   constructor(
     private afccReloaderService: AfccReloaderService,
-    private authReaderService: AuthReaderService,
     private snackBar: MatSnackBar,
     private iconRegistry: MatIconRegistry,
     private sanitizer: DomSanitizer,
@@ -102,9 +86,13 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
     );
   }
 
+  sendChallengeTest() {
+    this.afccReloaderService.sendChallengeToSam();
+  }
+
   ngOnInit() {
     // get the key reader to cypher and decypher the messages reader
-    this.authReaderService.getKeyReaderAndConfigCypherData$().subscribe();
+    this.afccReloaderService.getKeyReaderAndConfigCypherData$().subscribe();
     // Listen changes on connection
     this.afccReloaderService.deviceConnectionStatus$.subscribe(status => {
       if (status === ConnectionStatus.DISCONNECTED) {
@@ -147,16 +135,19 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
 
   startUidPolling() {
     this.uidIntervalId = setInterval(() => {
-      console.log('Se ejecuta interval Uiid');
       if (!this.readCardSubscription) {
-        console.log('Se ejecuta readCardSubscription');
-        this.readCardSubscription = this.afccReloaderService.requestAfccCard$().subscribe(result => {
+        this.readCardSubscription = this.afccReloaderService.requestAfccCard$()
+          .subscribe(result => {
           this.uiid$.next(result);
         },
           error => {
+            console.log('error en POLLING ==========> ', error);
             this.readCardSubscription = undefined;
+            // console.log('Error in auth: ', error);
+            this.openSnackBar('Fallo al leer la tarjeta');
           },
           () => {
+            console.log('Se completa obs');
             this.readCardSubscription = undefined;
           });
       }
@@ -184,15 +175,28 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
   }
 
   newConnection() {
-    if (!this.authReaderService.keyReader) {
-      this.authReaderService.getKeyReaderAndConfigCypherData$().subscribe();
+    if (!this.afccReloaderService.keyReader) {
+      this.afccReloaderService.getKeyReaderAndConfigCypherData$().subscribe();
       this.openSnackBar('Fallo al establecer conexión, intentelo nuevamente');
       this.afccReloaderService.deviceConnectionStatus$.next(
         ConnectionStatus.DISCONNECTED
       );
     }
     else {
-      this.afccReloaderService.stablishNewConnection$().subscribe(
+      this.afccReloaderService.stablishNewConnection$().pipe(
+        catchError(error => {
+          if (error.toString().includes('Bluetooth adapter not available')) {
+            this.openSnackBar('Bluetooth no soportado en este equipo');
+          } else {
+            this.openSnackBar(
+              'Fallo al establecer conexión, intentelo nuevamente'
+            );
+          }
+          this.disconnectDevice();
+          return Rx.of(error);
+        })
+      )
+        .subscribe(
         status => {
           this.afccReloaderService.deviceConnectionStatus$.next(status as String);
         },

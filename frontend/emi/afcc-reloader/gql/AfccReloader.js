@@ -19,3 +19,13 @@ export const getMasterKeyReloader = gql`
     }
   }
 `;
+
+export const getRndAAuthCard = gql`
+query getRndAAuthCard($uid: String, $postId: String, $data: String){
+  getRndAAuthCard(uid: $uid, postId: $postId, data: $data){
+    samid
+    timestamp
+    data
+  }
+}
+`;

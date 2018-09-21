@@ -3,6 +3,8 @@
         "name": "afcc-reloader",
         "type": "graphql",        
         "src": "api/gateway/graphql/afcc-reloader",
-        "preBuildCommands": []
+        "preBuildCommands": [
+            "npm install request@2.81.0"
+        ]
     }
 ]

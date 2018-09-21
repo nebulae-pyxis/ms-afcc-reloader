@@ -4,11 +4,11 @@ const pubsub = new PubSub();
 const Rx = require('rxjs');
 const RoleValidator = require('../../tools/RoleValidator');
 const broker = require('../../broker/BrokerFactory')();
-const { CustomError } = require("../../tools/customError");
+const { CustomError } = require('../../tools/customError');
+const superagent = require('superagent');
 
 const INTERNAL_SERVER_ERROR_CODE = 18001;
 const USERS_PERMISSION_DENIED_ERROR_CODE = 18002;
-
 
 /**
  * Handles errors
@@ -53,7 +53,7 @@ function getResponseFromBackEnd$(response) {
 module.exports = {
   //// QUERY ///////
   Query: {
-    getMasterKeyReloader(root, args, context) { 
+    getMasterKeyReloader(root, args, context) {
       return RoleValidator.checkPermissions$(
         context.authToken.realm_access.roles,
         'Afcc',
@@ -62,17 +62,42 @@ module.exports = {
         'Permission denied',
         ['pos']
       )
-      .mergeMap(() =>
-        context.broker.forwardAndGetReply$(
-          'Afcc',
-          'gateway.graphql.query.getMasterKeyReloader',
-          { root, args, jwt: context.encodedToken },
-          2000
+        .mergeMap(() =>
+          context.broker.forwardAndGetReply$(
+            'Afcc',
+            'gateway.graphql.query.getMasterKeyReloader',
+            { root, args, jwt: context.encodedToken },
+            2000
+          )
         )
+        .catch(err => handleError$(err, 'getMasterKeyReloader'))
+        .mergeMap(response => getResponseFromBackEnd$(response))
+        .toPromise();
+    },
+
+    getRndAAuthCard(root, args, context) {
+      return RoleValidator.checkPermissions$(
+        context.authToken.realm_access.roles,
+        'Afcc',
+        'getMasterKeyReloader',
+        USERS_PERMISSION_DENIED_ERROR_CODE,
+        'Permission denied',
+        ['pos']
       )
-      .catch(err => handleError$(err, 'getMasterKeyReloader'))
-      .mergeMap(response => getResponseFromBackEnd$(response))
-      .toPromise();
+        .mergeMap(() => { 
+          return Rx.Observable.defer(() => {
+            return superagent
+              .get(`${process.env.SAM_HTPP_END_POINT}/firstauthf1/${args.uid}`)
+              .query({ postid: args.postId, data: args.data });
+          });
+        })
+        .map(result => JSON.parse(result.res.text))
+        .map(dataInfo => { 
+          dataInfo.timestamp = parseInt(dataInfo.timestamp / 1000000);
+          return dataInfo;
+        })
+        .catch(err => handleError$(err, 'getRndAAuthCard'))
+        .toPromise();
     }
   },
   //// MUTATIONS ///////
@@ -99,10 +124,9 @@ module.exports = {
         .mergeMap(response => getResponseFromBackEnd$(response))
         .toPromise();
     }
-  },
+  }
 
   //// SUBSCRIPTIONS ///////
-  
 };
 
 //// SUBSCRIPTIONS SOURCES ////
