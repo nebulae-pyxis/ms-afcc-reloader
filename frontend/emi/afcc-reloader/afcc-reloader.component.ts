@@ -6,6 +6,7 @@ import { ConnectionStatus } from './connection-status';
 import { MatSnackBar, MatIconRegistry, MatDialog } from '@angular/material';
 import { DomSanitizer } from '@angular/platform-browser';
 import * as Rx from 'rxjs';
+import { interval, of, forkJoin } from 'rxjs';
 import {
   catchError,
 } from 'rxjs/operators';
@@ -21,13 +22,13 @@ import { AfccReloaderModelDialogComponent } from './afcc-reloader-modal-dialog/a
 export class AfccReloaderComponent implements OnInit, OnDestroy {
   showLoaderSpinner = false;
   uiid$ = new Rx.Subject<any>();
-  uidIntervalId;
   reloadButtonList;
   private subscribeList: Subscription[] = [];
-  private readCardSubscription: Subscription;
   batteryLevel$ = new Rx.BehaviorSubject<any>({});
   deviceName$ = new Rx.BehaviorSubject<String>('Venta carga tarjetas');
   deviceConnectionStatus$ = new Rx.BehaviorSubject<String>('DISCONNECTED');
+  uidIntervalId;
+  private readCardSubscription: Subscription;
 
   constructor(
     private afccReloaderService: AfccReloaderService,
@@ -86,10 +87,6 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
     );
   }
 
-  sendChallengeTest() {
-    this.afccReloaderService.sendChallengeToSam();
-  }
-
   ngOnInit() {
     // get the key reader to cypher and decypher the messages reader
     this.afccReloaderService.getKeyReaderAndConfigCypherData$().subscribe();
@@ -99,8 +96,8 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
         console.log('LLega desconexion');
         this.deviceName$.next('Venta carga tarjetas');
         this.afccReloaderService.onConnectionLost();
-        this.stopUidPolling();
         this.openModalDialog();
+        this.stopUidPolling();
       } else if (status === ConnectionStatus.IDLE) {
         this.openModalDialog();
       }
@@ -131,30 +128,6 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
       ConnectionStatus.DISCONNECTED
     );
     this.removeSubscriptions();
-  }
-
-  startUidPolling() {
-    this.uidIntervalId = setInterval(() => {
-      if (!this.readCardSubscription) {
-        this.readCardSubscription = this.afccReloaderService.requestAfccCard$()
-          .subscribe(result => {
-          this.uiid$.next(result);
-        },
-          error => {
-            console.log('error en POLLING ==========> ', error);
-            this.readCardSubscription = undefined;
-            // console.log('Error in auth: ', error);
-            this.openSnackBar('Fallo al leer la tarjeta');
-          },
-          () => {
-            console.log('Se completa obs');
-            this.readCardSubscription = undefined;
-          });
-      }
-     }, 2500);
-  }
-  stopUidPolling() {
-    clearInterval(this.uidIntervalId);
   }
 
   removeSubscriptions() {
@@ -195,8 +168,7 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
           this.disconnectDevice();
           return Rx.of(error);
         })
-      )
-        .subscribe(
+      ).subscribe(
         status => {
           this.afccReloaderService.deviceConnectionStatus$.next(status as String);
         },
@@ -245,5 +217,29 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
 
   openSnackBar(text) {
     this.snackBar.open(text, 'Cerrar', { duration: 2000 });
+  }
+
+  startUidPolling() {
+    this.uidIntervalId = setInterval(() => {
+      if (!this.readCardSubscription) {
+        this.readCardSubscription = this.afccReloaderService.requestAfccCard$()
+          .subscribe(result => {
+          this.uiid$.next(result);
+        },
+          error => {
+            console.log('error en POLLING ==========> ', error);
+            this.readCardSubscription = undefined;
+            // console.log('Error in auth: ', error);
+            this.openSnackBar('Fallo al leer la tarjeta');
+          },
+          () => {
+            console.log('Se completa obs');
+            this.readCardSubscription = undefined;
+          });
+      }
+     }, 2500);
+  }
+  stopUidPolling() {
+    clearInterval(this.uidIntervalId);
   }
 }

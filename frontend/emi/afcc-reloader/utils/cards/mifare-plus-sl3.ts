@@ -236,7 +236,6 @@ export class MyfarePlusSl3 {
     );
   }
   // #endregion
-
   // #region READ CARD
   /**
    * start the read process in the reader

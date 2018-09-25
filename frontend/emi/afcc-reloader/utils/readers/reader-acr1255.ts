@@ -46,8 +46,8 @@ export class ReaderAcr1255 {
             `Disp: ${(server as BluetoothRemoteGATTServer).device.name}`
           );
         }),
-        // Start the auth process with the reader
-        mergeMap(_ => this.startAuthReader$(bluetoothService, cypherAesService))
+         // Start the auth process with the reader
+         mergeMap(_ => this.startAuthReader$(bluetoothService, cypherAesService)),
       );
   }
 
@@ -110,7 +110,6 @@ export class ReaderAcr1255 {
     );
   }
   // #endregion
-
   // #region AUTHENTICATION
   /**
    * send the first step to start the auth by the reader
@@ -177,9 +176,7 @@ export class ReaderAcr1255 {
     );
   }
   // #endregion
-
   // #region GENERAL UTILS
-
   /**
    * get the current device battery level
    * @param bluetoothService Service used to get the battery level
