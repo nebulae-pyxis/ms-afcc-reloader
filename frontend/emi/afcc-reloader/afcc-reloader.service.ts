@@ -183,7 +183,7 @@ export class AfccReloaderService {
    * get the uiid of the current card
    */
 
-  readCurrentCard$() {
+  readCurrentCard$(uidSubject) {
     console.log(
       'Se inica Autenticacion con la llave de sesion: ',
       this.sessionKey
@@ -197,7 +197,8 @@ export class AfccReloaderService {
         this.deviceConnectionStatus$,
         this.gateway,
         this.currentSamId$,
-        this.afccOperationConfig
+        this.afccOperationConfig,
+        uidSubject
       );
   }
 

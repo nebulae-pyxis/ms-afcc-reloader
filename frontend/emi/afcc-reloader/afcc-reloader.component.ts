@@ -28,6 +28,7 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
   deviceName$ = new Rx.BehaviorSubject<String>('Venta carga tarjetas');
   deviceConnectionStatus$ = new Rx.BehaviorSubject<String>('DISCONNECTED');
   uidIntervalId;
+  uidSubject = new Rx.Subject<String>();
   private readCardSubscription: Subscription;
 
   constructor(
@@ -222,7 +223,7 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
 
 
   readCard() {
-    this.readCardSubscription = this.afccReloaderService.readCurrentCard$()
+    this.readCardSubscription = this.afccReloaderService.readCurrentCard$(this.uidSubject)
       .pipe(
     )
       .subscribe(result => {

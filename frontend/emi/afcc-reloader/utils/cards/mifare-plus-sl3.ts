@@ -49,7 +49,8 @@ export class MyfarePlusSl3 {
     deviceConnectionStatus$,
     gateway,
     currentSamId$,
-    afccOperationConfig
+    afccOperationConfig,
+    uidSubject
   ) {
     // get the key to use in auth card action
     return from(afccOperationConfig.readFlow).pipe(
@@ -65,7 +66,8 @@ export class MyfarePlusSl3 {
           gateway,
           currentSamId$,
           readFlow,
-          afccOperationConfig
+          afccOperationConfig,
+          uidSubject
         );
       })
     );
@@ -80,7 +82,8 @@ export class MyfarePlusSl3 {
     gateway,
     currentSamId$,
     readFlow,
-    afccOperationConfig
+    afccOperationConfig,
+    uidSubject
   ) {
     return Observable.create(async observer => {
       const readCardResult = { authObj: {}, rawData: [], blockList: []};
@@ -103,7 +106,8 @@ export class MyfarePlusSl3 {
                     deviceConnectionStatus$,
                     gateway,
                     currentSamId$,
-                    (authKeyObj as any).value
+                    (authKeyObj as any).value,
+                    uidSubject
                   );
                 }),
                 map(dataInfo =>
@@ -157,7 +161,10 @@ export class MyfarePlusSl3 {
           return range(1, (rawData as any).count).pipe(
             map(index => {
               const endIndex = (16 * index) - 1;
-              const initIndex = endIndex - 16;
+              let initIndex = endIndex - 16;
+              if (initIndex < 0) {
+                initIndex = 0;
+              }
               console.log('Init Index ', initIndex);
               console.log('End Index ', endIndex);
               const data = (rawData as any).data.slice(initIndex, endIndex);
@@ -199,7 +206,8 @@ export class MyfarePlusSl3 {
     cypherAesService: CypherAes,
     gateway: GatewayService,
     sessionKey,
-    authKey
+    authKey,
+    uidSubject
   ) {
     const authKeyByte = cypherAesService.hexToBytes(authKey);
     // prepare the auth message to send to card
@@ -227,6 +235,7 @@ export class MyfarePlusSl3 {
         // of the data(this bytes is onle to verify if is a correct answer)
         const uid = cypherAesService.bytesTohex(resp.data.slice(-6, -2));
         console.log(`UID Tarjeta: ${uid}`);
+
         return uid;
       }),
       mergeMap(uid => {
@@ -364,7 +373,8 @@ export class MyfarePlusSl3 {
     deviceConnectionStatus$,
     gateway: GatewayService,
     currentSamId$,
-    authKey
+    authKey,
+    uidSubject
   ) {
     return deviceConnectionStatus$.pipe(
       filter(
@@ -391,7 +401,8 @@ export class MyfarePlusSl3 {
               cypherAesService,
               gateway,
               sessionKey,
-              authKey
+              authKey,
+              uidSubject
             );
           }),
           mergeMap(cardAuthenticationFirstStepResp =>
