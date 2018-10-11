@@ -53,24 +53,57 @@ export class MyfarePlusSl3 {
     uidSubject
   ) {
     // get the key to use in auth card action
-    return from(afccOperationConfig.readFlow).pipe(
-      filter(readFlowToFilter => (readFlowToFilter as any).key === 'readDebit'),
-      first(),
-      mergeMap(readFlow => {
-        return this.readCardSection$(
+    return this.cardPowerOn$(
+      bluetoothService,
+      readerAcr1255,
+      cypherAesService,
+      sessionKey
+    ).pip(
+      mergeMap(res => {
+      return this.getUid$(
+        bluetoothService,
+        readerAcr1255,
+        cypherAesService,
+        sessionKey
+      ).pipe(
+        map(resultUid => {
+          const resp = new DeviceUiidResp(resultUid);
+          // get the last 4 bytes of the uid and remove the las 2 bytes
+          // of the data(this bytes is onle to verify if is a correct answer)
+          const uid = cypherAesService.bytesTohex(resp.data.slice(-6, -2));
+          console.log(`UID Tarjeta: ${uid}`);
+          uidSubject.next(uid);
+          return uid;
+        }));
+      }),
+      mergeMap(() => {
+        return this.cardPowerOff$(
           bluetoothService,
           readerAcr1255,
-          sessionKey,
           cypherAesService,
-          deviceConnectionStatus$,
-          gateway,
-          currentSamId$,
-          readFlow,
-          afccOperationConfig,
-          uidSubject
-        );
+          sessionKey
+        ).pipe(mapTo('Disconnecte from the card'));
       })
     );
+    // THIS IS THE REAL SECTION REMOVE THE ABDOVE SECTION AND UNCOMMENT THIS
+    // from(afccOperationConfig.readFlow).pipe(
+    //   filter(readFlowToFilter => (readFlowToFilter as any).key === 'readDebit'),
+    //   first(),
+    //   mergeMap(readFlow => {
+    //     return this.readCardSection$(
+    //       bluetoothService,
+    //       readerAcr1255,
+    //       sessionKey,
+    //       cypherAesService,
+    //       deviceConnectionStatus$,
+    //       gateway,
+    //       currentSamId$,
+    //       readFlow,
+    //       afccOperationConfig,
+    //       uidSubject
+    //     );
+    //   })
+    // );
   }
 
   readCardSection$(
