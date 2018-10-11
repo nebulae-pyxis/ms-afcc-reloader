@@ -58,7 +58,7 @@ export class MyfarePlusSl3 {
       readerAcr1255,
       cypherAesService,
       sessionKey
-    ).pip(
+    ).pipe(
       mergeMap(res => {
       return this.getUid$(
         bluetoothService,
