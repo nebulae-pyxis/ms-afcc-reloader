@@ -17,6 +17,46 @@ type RndaAuthCard {
   data: String
 }
 
+type OperationConfigKey {
+  key: String
+  value: String
+}
+
+type ReadFlow {
+  key: String
+  instructionSet: [String]
+}
+
+type Mapping {
+  key: String,
+  value: [MappingInfo]
+}
+
+type MappingInfo {
+  key: String,
+  value: MappingData
+}
+type MappingData {
+  block: Int
+  initPos: Int
+  endPos: Int
+}
+
+type MappingVersion {
+    key: String
+    block: Int
+    byte: Int
+}
+
+type OperationConfig {
+  system: String
+  type: String
+  mappingVersion: MappingVersion
+  keys: [OperationConfigKey]
+  readFlow: [ReadFlow]
+  mapping: [Mapping]
+  
+}
 input AfccReloadInput {
   "AFCC id"
   id: ID!
@@ -37,5 +77,9 @@ type Mutation {
 type Query {
   getMasterKeyReloader: ReaderKeyResponse
 
-  getRndAAuthCard(uid: String, postId: String, data: String): RndaAuthCard
+  getRndAAuthCard(uid: String, postId: String, data: String, key: Int): RndaAuthCard
+
+  getAuthConfirmation(samId: String, postId: String, data: String): RndaAuthCard
+
+  getAfccOperationConfig(system: String, type: String): OperationConfig
 }

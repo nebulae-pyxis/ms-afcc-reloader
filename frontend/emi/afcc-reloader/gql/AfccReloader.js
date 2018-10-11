@@ -21,11 +21,59 @@ export const getMasterKeyReloader = gql`
 `;
 
 export const getRndAAuthCard = gql`
-query getRndAAuthCard($uid: String, $postId: String, $data: String){
-  getRndAAuthCard(uid: $uid, postId: $postId, data: $data){
-    samid
-    timestamp
-    data
+  query getRndAAuthCard(
+    $uid: String
+    $postId: String
+    $data: String
+    $key: Int
+  ) {
+    getRndAAuthCard(uid: $uid, postId: $postId, data: $data, key: $key) {
+      samid
+      timestamp
+      data
+    }
+  }
+`;
+
+export const getAuthConfirmation = gql`
+  query getAuthConfirmation($samId: String, $postId: String, $data: String) {
+    getAuthConfirmation(samId: $samId, postId: $postId, data: $data) {
+      samid
+      timestamp
+      data
+    }
+  }
+`;
+
+export const getAfccOperationConfig = gql`
+query getAfccOperationConfig($system: String, $type: String){
+  getAfccOperationConfig(system: $system, type: $type){
+    system
+    type
+    keys{
+      key
+      value
+    }
+    mappingVersion{
+      key
+      block
+      byte
+    }
+    readFlow{
+      key
+      instructionSet
+    }
+    mapping{
+       key
+      value{
+       key
+      	value{
+          block
+          initPos
+          endPos
+        }
+      }
+    }
   }
 }
 `;

@@ -16,4 +16,10 @@ export class Commons {
     }
     return result;
   }
+  public static toBytesInt16(num) {
+    const arr = new ArrayBuffer(2); // an Int16 takes 4 bytes
+    const view = new DataView(arr);
+    view.setUint16(0, num, true); // byteOffset = 0; litteEndian = true
+    return view;
+  }
 }

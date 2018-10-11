@@ -64,6 +64,11 @@
               <input matInput placeholder="Saldo" value="0$">
             </mat-form-field>
           </div>
+
+          <div fxLayout="column" style="margin: 20px" fxLayout.gt-sm="column">
+              <button (click)="readCard()" style="margin-bottom: 30px" mat-raised-button color="accent">Leer tarjeta</button>
+              <button mat-raised-button color="accent">Escribir tarjeta</button>
+          </div>
       </div>
       <div fxLayout="column" fxLayout.gt-sm="column">
         <div fxLayout="row" fxLayout.gt-sm="row">

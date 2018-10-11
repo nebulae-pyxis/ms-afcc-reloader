@@ -97,12 +97,11 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
         this.deviceName$.next('Venta carga tarjetas');
         this.afccReloaderService.onConnectionLost();
         this.openModalDialog();
-        this.stopUidPolling();
       } else if (status === ConnectionStatus.IDLE) {
         this.openModalDialog();
       }
       else if (status === ConnectionStatus.CONNECTED) {
-        this.startUidPolling();
+
       }
       this.deviceConnectionStatus$.next(status);
     });
@@ -121,6 +120,8 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
     this.afccReloaderService.startNewConnection.subscribe(() =>
       this.newConnection()
     );
+    this.afccReloaderService.getAfccOperationConfig();
+
   }
 
   ngOnDestroy() {
@@ -219,27 +220,24 @@ export class AfccReloaderComponent implements OnInit, OnDestroy {
     this.snackBar.open(text, 'Cerrar', { duration: 2000 });
   }
 
-  startUidPolling() {
-    this.uidIntervalId = setInterval(() => {
-      if (!this.readCardSubscription) {
-        this.readCardSubscription = this.afccReloaderService.requestAfccCard$()
-          .subscribe(result => {
-          this.uiid$.next(result);
+
+  readCard() {
+    this.readCardSubscription = this.afccReloaderService.readCurrentCard$()
+      .pipe(
+    )
+      .subscribe(result => {
+        console.log('Resultado final: ', result);
+        this.uiid$.next(result);
+      },
+        error => {
+          console.log('error en POLLING ==========> ', error);
+          this.readCardSubscription = undefined;
+          // console.log('Error in auth: ', error);
+          this.openSnackBar('Fallo al leer la tarjeta');
         },
-          error => {
-            console.log('error en POLLING ==========> ', error);
-            this.readCardSubscription = undefined;
-            // console.log('Error in auth: ', error);
-            this.openSnackBar('Fallo al leer la tarjeta');
-          },
-          () => {
-            console.log('Se completa obs');
-            this.readCardSubscription = undefined;
-          });
-      }
-     }, 2500);
-  }
-  stopUidPolling() {
-    clearInterval(this.uidIntervalId);
+        () => {
+          console.log('Se completa obs');
+          this.readCardSubscription = undefined;
+        });
   }
 }

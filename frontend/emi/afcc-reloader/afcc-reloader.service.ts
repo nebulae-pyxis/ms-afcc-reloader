@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import * as Rx from 'rxjs';
-import { BluetoothService, CypherAesService } from '@nebulae/angular-ble';
+import { BluetoothService } from '@nebulae/angular-ble';
 import { ConnectionStatus } from './connection-status';
 import {
   mergeMap,
@@ -8,20 +8,20 @@ import {
   filter,
   tap,
   switchMap,
-  takeUntil
+  takeUntil,
+  mapTo
 } from 'rxjs/operators';
-import { MessageReaderTranslatorService } from './utils/message-reader-translator.service';
 import { GatewayService } from '../../../api/gateway.service';
-import { reloadAfcc } from './gql/AfccReloader';
-import { MatSnackBar } from '@angular/material';
+import { reloadAfcc, getMasterKeyReloader, getAfccOperationConfig } from './gql/AfccReloader';
 import { ReaderAcr1255 } from './utils/readers/reader-acr1255';
-import { getMasterKeyReloader } from './gql/AfccReloader';
 import { MyfarePlusSl3 } from './utils/cards/mifare-plus-sl3';
+import { CypherAes } from './utils/cypher-aes';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AfccReloaderService {
+  // #region VARIABLES ACR1255
   deviceConnectionStatus$ = new Rx.BehaviorSubject<String>('DISCONNECTED');
   batteryLevel$ = new Rx.BehaviorSubject<any>(0);
   deviceName$ = new Rx.BehaviorSubject<String>('Venta carga tarjetas');
@@ -29,21 +29,29 @@ export class AfccReloaderService {
   currentDevice: any;
   deviceStartIdleSubscription = new Rx.Subscription();
   deviceStopIdleSubscription = new Rx.Subscription();
-  uiid;
   readerAcr1255: ReaderAcr1255;
-  myfarePlusSl3: MyfarePlusSl3;
   sessionKey;
   keyReader;
+  private cypherAesService: CypherAes;
+  private cpherAesCard: CypherAes;
+  // #endregion
+
+  // #region MIFARE SL3
+  cardAuthObj;
+  currentSamId$ = new Rx.BehaviorSubject<String>('');
+  uiid;
+  myfarePlusSl3: MyfarePlusSl3;
+  afccOperationConfig;
+
+  // #endregion
 
   constructor(
     private bluetoothService: BluetoothService,
-    private messageReaderTranslator: MessageReaderTranslatorService,
-    private gateway: GatewayService,
-    private snackBar: MatSnackBar,
-    private cypherAesService: CypherAesService
+    private gateway: GatewayService
   ) {
     this.readerAcr1255 = new ReaderAcr1255();
     this.myfarePlusSl3 = new MyfarePlusSl3();
+    this.cypherAesService = new CypherAes();
   }
 
   // #region Authentication ACR1255
@@ -151,23 +159,48 @@ export class AfccReloaderService {
   // #endregion
 
   // #region AUTH CARD MIFARE SL3
+  getAfccOperationConfig() {
+    return this.gateway.apollo
+      .query<any>({
+        query: getAfccOperationConfig,
+        errorPolicy: 'all',
+        variables: {
+          system: 'CIVICA',
+          type: 'SL3'
+        },
+      })
+      .pipe(
+        map(result => {
+          return result.data.getAfccOperationConfig;
+        })
+    ).subscribe(afccOperationConfig => {
+      this.afccOperationConfig = afccOperationConfig;
+      console.log(afccOperationConfig);
+    });
+  }
+
   /**
    * get the uiid of the current card
    */
-  requestAfccCard$() {
+
+  readCurrentCard$() {
     console.log(
       'Se inica Autenticacion con la llave de sesion: ',
       this.sessionKey
     );
-    return this.myfarePlusSl3.authWithCard$(
-      this.bluetoothService,
-      this.readerAcr1255,
-      this.sessionKey,
-      this.cypherAesService,
-      this.deviceConnectionStatus$,
-      this.gateway
-    );
+    return this.myfarePlusSl3
+      .readCurrentCard$(
+        this.bluetoothService,
+        this.readerAcr1255,
+        this.sessionKey,
+        this.cypherAesService,
+        this.deviceConnectionStatus$,
+        this.gateway,
+        this.currentSamId$,
+        this.afccOperationConfig
+      );
   }
+
   // #endregion
 
   // #region READ CARD MIFARE SL3

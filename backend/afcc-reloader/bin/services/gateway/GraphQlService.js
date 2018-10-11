@@ -130,6 +130,12 @@ class GraphQlService {
         onErrorHandler,
         onCompleteHandler
       },   
+      {
+        aggregateType: "Afcc",
+        messageType: "gateway.graphql.query.getAfccOperationConfig",
+        onErrorHandler,
+        onCompleteHandler
+      },   
     ];
   }
 
@@ -144,6 +150,10 @@ class GraphQlService {
       },    
       "gateway.graphql.query.getMasterKeyReloader": {
         fn: afccReloader.getMasterKeyReloader$,
+        obj: afccReloader
+      },
+      "gateway.graphql.query.getAfccOperationConfig": {
+        fn: afccReloader.getAfccOperationConfig$,
         obj: afccReloader
       }
     };

@@ -53,6 +53,29 @@ function getResponseFromBackEnd$(response) {
 module.exports = {
   //// QUERY ///////
   Query: {
+    getAfccOperationConfig(root, args, context) {
+      return RoleValidator.checkPermissions$(
+        context.authToken.realm_access.roles,
+        'Afcc',
+        'getMasterKeyReloader',
+        USERS_PERMISSION_DENIED_ERROR_CODE,
+        'Permission denied',
+        ['pos']
+      )
+        .mergeMap(() => { 
+          console.log('llega al api');
+          return context.broker.forwardAndGetReply$(
+            'Afcc',
+            'gateway.graphql.query.getAfccOperationConfig',
+            { root, args, jwt: context.encodedToken },
+            2000
+          )
+        }
+        )
+        .catch(err => handleError$(err, 'getAfccOperationConfig'))
+        .mergeMap(response => getResponseFromBackEnd$(response))
+        .toPromise();
+    },
     getMasterKeyReloader(root, args, context) {
       return RoleValidator.checkPermissions$(
         context.authToken.realm_access.roles,
@@ -79,16 +102,17 @@ module.exports = {
       return RoleValidator.checkPermissions$(
         context.authToken.realm_access.roles,
         'Afcc',
-        'getMasterKeyReloader',
+        'getRndAAuthCard',
         USERS_PERMISSION_DENIED_ERROR_CODE,
         'Permission denied',
         ['pos']
       )
         .mergeMap(() => { 
+          console.log('key: ', args.key);
           return Rx.Observable.defer(() => {
             return superagent
               .get(`${process.env.SAM_HTPP_END_POINT}/firstauthf1/${args.uid}`)
-              .query({ postid: args.postId, data: args.data });
+              .query({ postid: args.postId, data: args.data, key: args.key });
           });
         })
         .map(result => JSON.parse(result.res.text))
@@ -97,6 +121,33 @@ module.exports = {
           return dataInfo;
         })
         .catch(err => handleError$(err, 'getRndAAuthCard'))
+        .toPromise();
+    },
+
+    getAuthConfirmation(root, args, context) {
+      return RoleValidator.checkPermissions$(
+        context.authToken.realm_access.roles,
+        'Afcc',
+        'getAuthConfirmation',
+        USERS_PERMISSION_DENIED_ERROR_CODE,
+        'Permission denied',
+        ['pos']
+      )
+        .mergeMap(() => { 
+          console.log('Se consulta con el samid: ', args.samId);
+          console.log('URL =====> ',`${process.env.SAM_HTPP_END_POINT}/firstauthf2/${args.samId}?postid=${args.postId}&data=${args.data}`)
+          return Rx.Observable.defer(() => {
+            return superagent
+              .get(`${process.env.SAM_HTPP_END_POINT}/firstauthf2/${args.samId}`)
+              .query({ postid: args.postId, data: args.data });
+          });
+        })
+        .map(result => JSON.parse(result.res.text))
+        .map(dataInfo => { 
+          dataInfo.timestamp = parseInt(dataInfo.timestamp / 1000000);
+          return dataInfo;
+        })
+        .catch(err => handleError$(err, 'getAuthConfirmation'))
         .toPromise();
     }
   },
